@@ -2,14 +2,15 @@
 
 clc; clear;
 
-% Ajouter le chemin Dynare (si nécessaire)
-addpath('C:\dynare\6.3\matlab');  % adapte selon ton installation
+% Ajouter le chemin Dynare
+addpath('C:\dynare\6.3\matlab'); 
 
-% Lancer Dynare sur ton fichier .mod
+% Lancer Dynare sur le fichier .mod
 dynare nk_model.mod noclearall
 
+save('irfs.mat', 'oo_');
+
 %% Après exécution, Dynare crée automatiquement les IRFs dans le workspace
-% Les variables IRF commencent par 'oo_.irfs'
 
 % IRF of monetary policy shock
 figure;

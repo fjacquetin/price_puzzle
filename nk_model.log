@@ -19,10 +19,8 @@ Finding the optimal block decomposition of the dynamic model...
                                  and 2 feedback variable(s). 
 Preprocessing completed. 
 Preprocessing time: 0h00m00s.
-[Warning: Some of the parameters have no value (kappa) when using steady. If these parameters are not
-initialized in a steadystate file or a steady_state_model-block, Dynare may not be able to solve the
-model. Note that simul, perfect_foresight_setup, and perfect_foresight_solver do not automatically call
-the steady state file.] 
+[Warning: Some of the parameters have no value (kappa) when using steady. If these parameters are not initialized in a steadystate file or a steady_state_model-block, Dynare may
+not be able to solve the model. Note that simul, perfect_foresight_setup, and perfect_foresight_solver do not automatically call the steady state file.] 
 
 STEADY-STATE RESULTS:
 
@@ -43,10 +41,8 @@ EIGENVALUES:
 There are 3 eigenvalue(s) larger than 1 in modulus for 3 forward-looking variable(s)
 The rank condition is verified.
 
-[Warning: Some of the parameters have no value (kappa) when using stoch_simul. If these parameters are
-not initialized in a steadystate file or a steady_state_model-block, Dynare may not be able to solve
-the model. Note that simul, perfect_foresight_setup, and perfect_foresight_solver do not automatically
-call the steady state file.] 
+[Warning: Some of the parameters have no value (kappa) when using stoch_simul. If these parameters are not initialized in a steadystate file or a steady_state_model-block, Dynare
+may not be able to solve the model. Note that simul, perfect_foresight_setup, and perfect_foresight_solver do not automatically call the steady state file.] 
 
 MODEL SUMMARY
 
@@ -107,5 +103,5 @@ pi        0.6544  0.4907  0.4023  0.3463  0.3054
 int       0.6216  0.4480  0.3587  0.3050  0.2674
 a         0.9000  0.8100  0.7290  0.6561  0.5905
 b         0.4000  0.1600  0.0640  0.0256  0.0102
-Total computing time : 0h00m02s
+Total computing time : 0h00m11s
 Note: warning(s) encountered in MATLAB/Octave code

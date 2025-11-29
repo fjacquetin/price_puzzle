@@ -1,12 +1,20 @@
 rm(list = ls())
 
+packages <- c(
+  "tidyverse",
+  "lubridate",
+  "zoo",
+  "fredr",
+  "openxlsx",
+  "mFilter"
+)
 
-library(tidyverse)
-library(lubridate)
-library(zoo)
-library(fredr)
-library(openxlsx)
-library(mFilter)   # pour hpfilter
+to_install <- packages[!packages %in% installed.packages()[, "Package"]]
+if (length(to_install) > 0) {
+  install.packages(to_install)
+}
+
+lapply(packages, library, character.only = TRUE)
 
 select <- dplyr::select  # pour éviter les conflits
 
