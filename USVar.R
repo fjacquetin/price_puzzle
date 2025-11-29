@@ -6,6 +6,8 @@ library(zoo)
 library(vars)
 library(openxlsx)
 
+source("utils.R")
+
 # 1. Charger les données 
 
 df_us <- read_csv("sorties/data_us.csv",
@@ -94,6 +96,8 @@ irf_pre <- irf(
   ortho = TRUE  # Cholesky
 )
 
+plot(irf_pre)
+
 irf_post <- irf(
   var_post,
   impulse = "ffr",
@@ -142,3 +146,29 @@ irf_post_tbl <- irf_to_tibble(irf_post, "post79")
 irf_all <- bind_rows(irf_pre_tbl, irf_post_tbl)
 
 write_csv(irf_all, "sorties/IRF_Cholesky_pre_post.csv")
+
+## Modèle 2 : avec anticipations d'inflation
+
+green <- read.xlsx("data/greenbook.xlsx")
+
+df <- df_pre %>%
+  mutate(date=gsub(" ","",date)) %>%
+  inner_join(green,by="date") 
+
+select_exp  <- VARselect(df_ts,  lag.max = 8, type = "const")
+
+lags_exp  <- select_exp$selection["SC(n)"]
+
+VAR_exp <- VAR(df_ts,  p = p_pre,  type = "const")
+
+irf_exp <- irf(
+  VAR_exp,
+  # impulse = "ffr",
+  response = c("green","y_gap", "pi", "ffr"),
+  n.ahead = 20,
+  boot = TRUE,
+  runs = 500,
+  ortho = TRUE  # Cholesky
+)
+
+plot(irf_exp)
