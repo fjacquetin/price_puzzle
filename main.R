@@ -6,7 +6,7 @@ library(purrr)
 library(lubridate)
 library(zoo)
 library(vars)
-library(svars)
+#library(svars)
 library(openxlsx)
 library(tsDyn)
 library(urca)
@@ -79,13 +79,13 @@ prix <- get_data("ICP.M.U2.Y.XEFUN0.3.INX") %>%
   summarise(prix = mean(value)) %>%
   ungroup() %>%
   mutate(prix = log(prix)) %>%
-  arrange(date) %>%
-  filter(!is.na(pi))
+  arrange(date) 
 
 pi <- prix %>%
-  mutate(pi=100*(prix)-lag(prix)) %>%
+  mutate(pi = 400 * (prix - lag(prix))) %>% 
   select(-prix)
   # drop_na()
+
 masse_monetaire <- get_data("BSI.Q.U2.N.V.M30.X.1.U2.2300.Z01.E") %>%
   select(date=obstime,m3=obsvalue) %>%
   mutate(m3 = log(m3),
@@ -140,6 +140,7 @@ change <- get_data("EXR.Q.USD.EUR.SP00.A") %>%
 
 df = pib %>%
   full_join(prix, by = "date") %>%
+  full_join(pi, by = "date") %>%
   full_join(export, by = "date") %>%
   full_join(taux, by = "date") %>%
   full_join(conso, by = "date") %>%
@@ -150,4 +151,4 @@ df = pib %>%
   full_join(masse_monetaire, by = "date") %>%
   arrange(date)
 
-write.xlsx(x=df,file="sorties/data.xlscx")
+write.xlsx(x=df,file="sorties/data.xlsx")
