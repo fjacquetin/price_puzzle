@@ -147,7 +147,91 @@ irf_all <- bind_rows(irf_pre_tbl, irf_post_tbl)
 
 write_csv(irf_all, "sorties/IRF_Cholesky_pre_post.csv")
 
-## Modèle 2 : avec anticipations d'inflation
+
+# --- Paramètres
+Sigma <- cov(resid(var_pre))
+P <- t(chol(Sigma))
+n.sim <- 5000
+H <- 12
+N <- ncol(Y_pre_ts)
+
+# --- Companion matrix
+A_raw <- vars::Bcoef(var_pre)
+if (is.list(A_raw)) {
+  A <- do.call(cbind, A_raw)
+} else {
+  A <- A_raw
+}
+
+A_no_const <- A[, 1:(N*var_pre$p)]
+A_big[1:N, 1:(N*var_pre$p)] <- A_no_const
+
+if (var_pre$p > 1) {
+  A_big[(N+1):(N*var_pre$p), 1:(N*(var_pre$p-1))] <- diag(N*(var_pre$p-1))
+}
+
+# --- IRF manuelle
+manual_irf <- function(B, H) {
+  irf_mat <- matrix(0, H, N)
+  A_power <- diag(1, N*var_pre$p)
+  for (h in 1:H) {
+    A_power <- A_big %*% A_power
+    irf_mat[h, ] <- (A_power[1:N, 1:N] %*% B)[,1]
+  }
+  colnames(irf_mat) <- colnames(Y_pre_ts)
+  return(irf_mat)
+}
+
+# --- Simulation avec sign restrictions
+irfs_kept <- list()
+count <- 0
+set.seed(123)
+
+for (i in 1:n.sim) {
+  Z <- matrix(rnorm(N*N), N, N)
+  Q <- qr.Q(qr(Z))
+  B <- P %*% Q
+  
+  irf_B <- manual_irf(B, H)
+  
+  dy_response   <- irf_B[1, "y_gap"]
+  taux_response <- irf_B[1, "ffr"]
+  
+  if (taux_response >= 0 && dy_response <= 0) {
+    count <- count + 1
+    irfs_kept[[count]] <- irf_B
+  }
+}
+
+percent_kept <- count / n.sim * 100
+cat(percent_kept,"% de simulations vérifient les sign restrictions")
+
+# --- Conversion en tidy data
+irf_df <- map_dfr(irfs_kept, ~as.data.frame(.x) %>% mutate(h = 1:H), .id = "sim") %>%
+  pivot_longer(cols = -c(sim, h), names_to = "variable", values_to = "irf")
+
+# --- Calcul des statistiques
+irf_summary <- irf_df %>%
+  group_by(h, variable) %>%
+  summarise(
+    mean = mean(irf),
+    lower68 = quantile(irf, 0.16),
+    upper68 = quantile(irf, 0.84),
+    lower90 = quantile(irf, 0.05),
+    upper90 = quantile(irf, 0.95),
+    .groups = "drop"
+  )
+
+ggplot(irf_summary, aes(x = h, y = mean)) +
+  geom_line(size = 1.2, color = "black") + # lignes noires, ou color distincte si tu veux
+  geom_ribbon(aes(ymin = lower68, ymax = upper68), alpha = 0.3, fill = "blue") +
+  geom_ribbon(aes(ymin = lower90, ymax = upper90), alpha = 0.15, fill = "lightblue") +
+  labs(x = "Horizon", y = "IRF", title = "Réponses à un choc monétaire (sign restrictions)") +
+  theme_minimal() +
+  facet_wrap(~variable, scales = "free_y")  # <- ici la bonne colonne
+
+
+## Modèle 3 : avec anticipations d'inflation
 
 green <- read.xlsx("data/greenbook.xlsx")
 
