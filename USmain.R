@@ -18,6 +18,10 @@ lapply(packages, library, character.only = TRUE)
 
 select <- dplyr::select  # pour éviter les conflits
 
+ogap <- read.csv2("data/Quarterly_January2025.csv") %>%
+  mutate(date=as.character(gsub("q"," Q",date))) %>%
+  mutate(date = as.yearqtr(date)) %>%
+  select(date,y_gap=output_gap)
 
 fredr_set_key("2081d90b146ea654a4866e909178bfaf")
 
@@ -35,19 +39,19 @@ gdp_real <- fredr(
 
 # 2. "Output gap" 
 
-hp_res <- hpfilter(gdp_real$y_real, freq = 1600)
-
-gdp_real <- gdp_real %>%
-  mutate(
-    y_trend = as.numeric(hp_res$trend),
-    y_gap   = 100 * (y_real - y_trend)
-  )
-
-ogap <- gdp_real %>%
-  transmute(
-    date,
-    y_gap = as.numeric(y_gap)
-  )
+# hp_res <- hpfilter(gdp_real$y_real, freq = 1600)
+# 
+# gdp_real <- gdp_real %>%
+#   mutate(
+#     y_trend = as.numeric(hp_res$trend),
+#     y_gap   = 100 * (y_real - y_trend)
+#   )
+# 
+# ogap <- gdp_real %>%
+#   transmute(
+#     date,
+#     y_gap = as.numeric(y_gap)
+#   )
 
 # 3. GDP deflator -> inflation 
 
@@ -89,6 +93,22 @@ ffr_q <- ffr_m %>%
   ) %>%
   ungroup() %>%
   arrange(date)
+
+# import de PPIACO
+com <- fredr(
+  series_id = "PPIACO",
+  observation_start = as.Date("1960-01-01")  # ou date plus pertinente
+) %>%
+  transmute(
+    date_m = date,
+    com_price = log(value)
+  ) %>%
+  mutate(
+    date = as.yearqtr(date_m),
+    com_price = 400 * (com_price - lag(com_price))    # inflation trimestrielle annualisée
+  ) %>%
+  arrange(date)
+
 
 # 5. Merge des séries US 
 

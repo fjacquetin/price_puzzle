@@ -108,6 +108,30 @@ irf_post <- irf(
   ortho = TRUE
 )
 
+plot_irf <- function(df, title = "") {
+  ggplot(df, aes(x = horizon, y = irf)) +
+    geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.15) +
+    geom_line(size = 1) +
+    facet_wrap(~variable, scales = "free_y", ncol = 1) +
+    labs(title = title, x = "Horizon", y = "Réponse") +
+    theme_minimal(base_size = 13) +
+    theme(
+      plot.title = element_text(face = "bold"),
+      strip.text = element_text(face = "bold")
+    )
+}
+
+g_pre  <- plot_irf(df_irf_pre,  "Réponse à un choc de taux (Pré-1979)")
+g_post <- plot_irf(df_irf_post, "Réponse à un choc de taux (Post-1979)")
+
+final_plot <- g_pre / g_post  # patchwork : concaténation verticale
+
+ggsave(
+  "sorties/figures/IRF_pre_post_Cholesky.png",
+  final_plot,
+  width = 10, height = 12, dpi = 300
+)
+
 # 8. Sauvegarder les IRFs en graphiques 
 
 dir.create("sorties/figures", showWarnings = FALSE)
