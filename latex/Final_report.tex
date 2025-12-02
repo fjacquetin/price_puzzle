@@ -1,0 +1,66 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath, amssymb}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{natbib}
+\usepackage{geometry}
+\geometry{margin=1in}
+
+\title{Macroeconometrics: Final Assignment}
+\author{Giovanni Ricco}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+\textit{This report presents an empirical analysis in macroeconometrics based on the framework developed in 
+\citet{CastelnuovoSurico2010}. The study investigates the interaction between monetary policy, 
+inflation expectations, and the so-called price puzzle. Using time series data and vector autoregressive 
+(VAR) models, we replicate and extend some of the key findings of Castelnuovo and Surico, highlighting 
+the effects of monetary shocks on price dynamics and expectations formation.}
+\end{abstract}
+
+\section{Introduction}
+
+Understanding the effects of monetary policy on macroeconomic variables has long been a central challenge in macroeconometrics. Traditional macroeconometric models, based on simultaneous equations, have been criticized for their lack of microeconomic foundations. Lucas \citeyearpar{Lucas1976}, for instance, emphasized the \emph{policy invariance problem} and the role of rational expectations in shaping economic outcomes. In contrast, Sims \citeyearpar{Sims1980} highlighted the limitations of imposing a priori restrictions on macroeconomic models, advocating for more flexible, data-driven approaches. These critiques gave rise to two complementary families of models: 
+
+\begin{itemize}
+    \item \textbf{Vector autoregressive (VAR) models}, which are purely empirical and allow for flexible identification of shocks without relying on microfoundations; 
+    \item \textbf{Dynamic stochastic general equilibrium (DSGE) models}, which are microfounded, explicitly incorporate optimizing agents, and model expectations formation.
+\end{itemize}
+
+One well-known empirical phenomenon challenging both approaches is the \emph{price puzzle}, whereby inflation temporarily rises following a contractionary monetary policy shock. This counterintuitive response has been documented in numerous studies \citep{Sims1992,Christiano1999} and has been linked to factors such as measurement errors, the persistence of monetary policy shocks, and the degree of inflation inertia. The occurrence and magnitude of the price puzzle are also influenced by the monetary regime, such as whether policy follows a strict Taylor rule or incorporates forward-looking behavior.
+
+In this study, we focus on the New Keynesian (NK) framework, which provides microfounded modeling of price and wage rigidities and incorporates forward-looking expectations. To compare theory with empirical evidence, we estimate a structural VAR using U.S. data from the Federal Reserve Economic Data (FRED) database and the federal budget, identifying monetary policy shocks and measuring their effects on output, inflation, and interest rates. We also propose several metrics for inflation expectations and assess their robustness to the price puzzle, providing insight into the role of anticipations in shaping the observed dynamics.
+
+
+
+\section{Data}
+Describe the dataset used, its sources, frequency, variables, and any preprocessing steps.
+
+\section{Methodology}
+\subsection{Model Specification}
+Introduce the VAR model used, its lag structure, identification strategy, and any assumptions.
+
+\subsection{Estimation Procedure}
+Explain the estimation method, software used, and the steps to obtain impulse response functions.
+
+\section{Results}
+Present the estimation results, impulse response functions, and any key findings. Include figures and tables.
+
+\section{Discussion}
+Interpret the results in light of the price puzzle and the original findings by Castelnuovo and Surico. 
+Discuss limitations and possible extensions.
+
+\section{Conclusion}
+Summarize the main findings and their implications for monetary policy analysis.
+
+\bibliographystyle{apalike}
+\bibliography{refs}
+
+\end{document}
