@@ -26,7 +26,7 @@ int_eb <- as.numeric(irfs_list[[8]])
 
 # Créer un dataframe long pour ggplot
 irf_df <- data.frame(
-  Period = 1:length(x_eb),
+  Period = 0:(length(x_eb)-1),
   `OutputGap (%)` = x_eb,
   `Inflation (pp)` = pi_eb,
   `InterestRate (pp)` = int_eb,
