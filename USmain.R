@@ -18,11 +18,6 @@ lapply(packages, library, character.only = TRUE)
 
 select <- dplyr::select  # pour éviter les conflits
 
-ogap <- read.csv2("data/Quarterly_January2025.csv") %>%
-  mutate(date=as.character(gsub("q"," Q",date))) %>%
-  mutate(date = as.yearqtr(date)) %>%
-  select(date,y_gap=output_gap)
-
 fredr_set_key("2081d90b146ea654a4866e909178bfaf")
 
 # 1. PIB réel (Real GDP) 
@@ -112,8 +107,18 @@ com <- fredr(
 
 # 5. Merge des séries US 
 
-df_us <- ogap %>%
-  full_join(pi_gdp, by = "date") %>%
+
+ogap <- read.csv2("data/Quarterly_January2025.csv") %>% 
+  mutate(
+    date = gsub("q","Q",date),
+    date = as.yearqtr(date, format = "%Y Q%q"),
+  ) %>%
+  dplyr::select(date,y_gap=output_gap) %>%
+  arrange(date)
+
+
+df_us <- pi_gdp %>%
+  left_join(ogap, by = "date") %>%
   full_join(ffr_q,  by = "date") %>%
   arrange(date)
 

@@ -31,7 +31,7 @@ df_to_ts <- function(data, date_col = "date") {
   
   # Extraire année et trimestre pour le premier point
   start_year <- as.numeric(substr(period[1], 1, 4))
-  start_quarter <- as.numeric(substr(period[1], 6, 6))
+  start_quarter <- as.numeric(substr(period[1], 7, 7))
   
   # Retirer la colonne date
   data2 <- data[, !(names(data) == date_col), drop = FALSE]
@@ -77,4 +77,36 @@ restrict_base <- function (df,variables=NULL,start=NULL,end=NULL){
   df <- window(df_ts,start = c(1999,1),end=c(2019,4))
 
   return(df)
+}
+
+
+irf_to_df <- function(irf_obj, impulse_name = "ffr") {
+  # Horizon
+  horizon <- 0:(nrow(irf_obj$irf[[impulse_name]]) - 1)
+  
+  # Data frame long
+  df <- data.frame(irf_obj$irf[[impulse_name]]) %>%
+    mutate(horizon = horizon) %>%
+    pivot_longer(cols = -horizon, names_to = "variable", values_to = "irf") %>%
+    mutate(
+      lower = as.vector(t(irf_obj$Lower[[impulse_name]])),
+      upper = as.vector(t(irf_obj$Upper[[impulse_name]]))
+    )
+  
+  return(df)
+}
+
+
+plot_irf <- function(df, title = "") {
+  p <- ggplot(df, aes(x = horizon, y = irf)) +
+    geom_ribbon(aes(ymin = lower, ymax = upper), fill = "red", alpha = 0.15) +
+    geom_line(size = 1.2, color = "red") +
+    facet_wrap(~variable, scales = "free_y", ncol = 1) +
+    labs(title = title, x = "Horizon (trimestres)", y = "Réponse") +
+    theme_minimal(base_size = 13) +
+    theme(
+      plot.title = element_text(face = "bold"),
+      strip.text = element_text(face = "bold")
+    )
+  return(p)
 }

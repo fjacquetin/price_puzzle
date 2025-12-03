@@ -26,8 +26,8 @@ phix  = 0.;
 mu    = sig* (1 + phi) / (sig + phi);
 
 // Autoregressive parameters
-rhoa = 0.9; 
-rhob = 0.4;
+rhoa = 0.95; 
+rhob = 0.5;
 
 
 // Declaration of the model - take the linear for (after log linearization): 

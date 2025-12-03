@@ -1,0 +1,336 @@
+---
+title: "PP_project"
+author: "Loman Sezestre, Florian Jacquetin"
+format:
+  html:
+    code-fold: false
+execute:
+  echo: true
+  output: true
+  warning: false
+  message: false
+---
+
+#| setup
+#| include: true
+#| echo: false
+
+# Solving the price puzzle
+
+This project aims at studying the price puzzle, a macroeconomic paradox observed by Sims (1980), when an increase of interest rate is sometimes followed by an increase of inflation in macroeconometric models.
+
+It is designed as follows :
+
+1.  Presentation of the data
+2.  Reminder of the results of the NK framework
+3.  Modeling of the MP in US according to Castelnuovo and Surico (2010)
+4.  Solving the price puzzle according different strategies
+5.  Extensions
+
+```{r}
+
+packages <- c(
+  "tidyverse",
+  "lubridate",
+  "zoo",
+  "fredr",
+  "openxlsx",
+  "mFilter",
+  "R.matlab",
+  "strucchange",
+  "vars"
+)
+
+to_install <- packages[!packages %in% installed.packages()[, "Package"]]
+if(length(to_install) > 0) install.packages(to_install)
+
+for(p in packages) library(p, character.only = TRUE)
+
+source("utils.R")
+```
+
+Output gap (<https://www.cbo.gov/data/budget-economic-data>)
+
+```{r}
+ogap <- read.csv2("data/Quarterly_January2025.csv") %>% 
+  mutate(
+    date = as.yearqtr(date, format = "%Y q%q")
+  )
+```
+
+```{r}
+#| echo: false
+ogap <- read.csv2("data/Quarterly_January2025.csv") %>% 
+  mutate(
+    date = gsub("q","Q",date),
+    date = as.yearqtr(date, format = "%Y Q%q"),
+    y_gap = as.numeric(output_gap)
+  ) %>%
+  dplyr::select(date,y_gap)
+
+ggplot(ogap, aes(x = as.numeric(date), y = y_gap)) +
+  theme_minimal() +
+  geom_line() +
+  labs(x = NULL, y = "Output Gap")
+```
+
+GDP Deflator and Inflation (FREDR)
+
+```{r}
+fredr::fredr_set_key("2081d90b146ea654a4866e909178bfaf")
+
+gdpdef <- fredr::fredr(
+  series_id = "GDPDEF",
+  observation_start = as.Date("1960-01-01")
+) %>%
+  transmute(
+    date = as.yearqtr(date),
+    p_gdp = log(value)
+  ) %>%
+  arrange(date)
+
+pi_gdp <- gdpdef %>%
+  mutate(
+    pi = 400 * (p_gdp - lag(p_gdp))    # inflation trimestrielle annualisée
+  ) %>%
+  drop_na() %>%
+  dplyr::select(date, pi)
+
+ggplot(pi_gdp, aes(date, pi)) +
+  geom_line() +
+  theme_minimal() +
+  labs(x = NULL, y = "Quarterly inflation (annualized)")
+```
+
+```{r}
+ffr_m <- fredr::fredr(
+  series_id = "FEDFUNDS",
+  observation_start = as.Date("1960-01-01")
+) %>%
+  transmute(
+    date_m = as.yearmon(date),
+    ffr = value
+  )
+
+ffr_q <- ffr_m %>%
+  mutate(
+    date = as.yearqtr(date_m)
+  ) %>%
+  group_by(date) %>%
+  summarise(
+    ffr = mean(ffr, na.rm = TRUE)
+  ) %>%
+  ungroup() %>%
+  arrange(date) %>%
+filter(date <= "2006 Q4")
+
+ggplot(ffr_q, aes(date, ffr)) +
+  geom_line() +
+  theme_minimal() +
+  labs(x = NULL, y = "Federal Funds Rate")
+```
+We do a Chow test to highlight the change of regime post 1979.
+
+
+```{r}
+df_us <- pi_gdp %>%
+  inner_join(ogap, by = "date") %>%
+  inner_join(ffr_q,  by = "date") %>%
+  arrange(date)
+
+
+print(head(df_us, 10))
+
+# 6. Sauvegarde --
+
+dir.create("sorties", showWarnings = FALSE)
+```
+We run a Chow test to find the best break point, following Paul Volcker's appointment at the Fed.
+
+```{r}
+df <- df_us %>% dplyr::select(-date)
+
+select_order <- VARselect(df)
+lags <- select_order$selection["SC(n)"]
+
+var_fit <- VAR(df, p = lags, type = "const")
+ffr_eq <- var_fit$varresult$ffr
+resid_ffr <- residuals(ffr_eq)
+
+quarters <- seq(as.yearqtr("1979 Q1"), as.yearqtr("1981 Q4"), by = 0.25)
+
+p_values <- numeric(length(quarters))
+
+for(i in seq_along(quarters)) {
+  bp <- which(df_us$date == quarters[i])
+  if(length(bp) == 1) { 
+    chow <- sctest(resid_ffr ~ 1, type = "Chow", point = bp)
+    p_values[i] <- chow$p.value
+  } else {
+    p_values[i] <- NA
+  }
+}
+
+p_df <- data.frame(
+  Quarter = quarters,
+  P_value = p_values
+)
+
+ggplot(p_df, aes(x = Quarter, y = P_value)) +
+  geom_line(color = "red", size = 1.2) +
+  geom_hline(yintercept = 0.05, linetype = "dashed", color = "blue") +
+  theme_minimal(base_size = 14) +
+  labs(
+    title = "Chow test p-values",
+    x = NULL,
+    y = "p-value"
+  )
+```
+
+
+Here we introduce the NK model and its properties.
+
+```{r} 
+#| echo: false
+## This cell needs to have Matlab installed. Change the link if necessary
+
+matlab_exec <- "C:/Program Files/MATLAB/R2024b/bin/matlab.exe"
+
+system(sprintf('"%s" -batch "run(\'compute_nk_model.m\')"', matlab_exec))
+```
+
+The parameters are taken from Clarida, R., Galí, J., & Gertler, M. (2000).
+
+Let's observe the IRFs.
+
+```{r}
+
+mat_data <- R.matlab::readMat("sorties/irfs.mat")
+oo_matrix <- mat_data$oo.       
+irfs_list <- oo_matrix[[20]]
+
+x_eb <- as.numeric(irfs_list[[6]])
+pi_eb <- as.numeric(irfs_list[[7]])
+int_eb <- as.numeric(irfs_list[[8]])
+
+nk_df <- data.frame(
+  horizon = 0:(length(x_eb)-1),
+  y_gap = x_eb,
+  pi = pi_eb,
+  ffr = int_eb,
+  check.names = FALSE
+) %>%
+  pivot_longer(cols = -horizon, names_to = "variable", values_to = "irf")
+
+ggplot(nk_df, aes(x = horizon, y = irf)) +
+  theme_minimal(base_size = 14) +
+  geom_line(size = 1, color = "red") +
+  facet_wrap(~variable, ncol = 1, scales = "free_y") +
+  labs(title = "IRFs to a MP shock in a NK model",
+       x = "Periods",
+       y = "Response") +
+  geom_hline(yintercept = 0, color = "grey", linetype = "solid") + 
+  geom_vline(xintercept = 0, color = "grey", linetype = "solid") +
+  theme(
+    legend.position = "none",
+    strip.text = element_text(face = "bold", size = 12),
+    panel.grid.major = element_line(color = "gray90")
+  )
+
+
+```
+
+Let's construct a SVAR model based on [og(t) pi(t) ffr(t)]
+
+```{r}
+# echo: false
+Y_pre_ts  <- df_us %>%
+  filter(date <= as.yearqtr("1979 Q4")) %>%
+  df_to_ts()
+
+Y_post_ts <- df_us %>%
+  filter(date >= as.yearqtr("1980 Q1")) %>%
+  df_to_ts()
+
+lags_pre  <- VARselect(Y_pre_ts,  lag.max = 8, type = "const")
+lags_post <- VARselect(Y_post_ts, lag.max = 8, type = "const")
+
+p_pre  <- lags_pre$selection["SC(n)"]
+p_post <- lags_post$selection["SC(n)"]
+
+cat("Lags retenus (pré)  :", p_pre,  "\n")
+cat("Lags retenus (post) :", p_post, "\n")
+
+var_pre <- VAR(Y_pre_ts,  p = p_pre,  type = "const")
+var_post <- VAR(Y_post_ts, p = p_post, type = "const")
+
+summary(var_pre)
+summary(var_post)
+
+# 7. IRFs with Cholesky identification 
+
+irf_pre <- irf(
+  var_pre,
+  impulse = "ffr",
+  response = c("y_gap", "pi", "ffr"),
+  n.ahead = 20,
+  boot = TRUE,
+  runs = 500,
+  ortho = TRUE  # Cholesky
+)
+
+
+irf_post <- irf(
+  var_post,
+  impulse = "ffr",
+  response = c("y_gap", "pi", "ffr"),
+  n.ahead = 20,
+  boot = TRUE,
+  runs = 500,
+  ortho = TRUE
+)
+
+df_irf_pre  <- irf_to_df(irf_pre, impulse_name = "ffr")
+df_irf_post <- irf_to_df(irf_post, impulse_name = "ffr")
+
+df_irf_pre$period  <- factor("Pré-1979", levels = c("Pré-1979", "Post-1979"))
+df_irf_post$period <- factor("Post-1979", levels = c("Pré-1979", "Post-1979"))
+
+nk_df_long <- nk_df %>%
+  mutate(lower = irf, upper = irf) %>%   # bandes de confiance égales à la valeur
+  expand_grid(period = c("Pré-1979", "Post-1979"))
+
+df_irf_all <- bind_rows(df_irf_pre, df_irf_post)
+
+
+# Ajouter un identifiant pour la légende combinée
+df_irf_all_plot <- df_irf_all %>%
+  mutate(period_factor = factor(period, levels = c("Pré-1979", "Post-1979")))
+
+nk_df_long_plot <- nk_df_long %>%
+  mutate(period_factor = factor(period, levels = c("Pré-1979", "Post-1979")))
+
+ggplot() +
+  geom_ribbon(data = df_irf_all_plot,
+              aes(x = horizon, ymin = lower, ymax = upper, fill = period_factor),
+              alpha = 0.15, color = NA, show.legend = FALSE) +
+  geom_line(data = df_irf_all_plot,
+            aes(x = horizon, y = irf, color = period_factor),
+            size = 1, show.legend = FALSE) +
+  geom_line(data = nk_df_long_plot,
+            aes(x = horizon, y = irf, linetype = "NK model"),
+            color = "black", size = 1) +
+  facet_grid(variable ~ period_factor, scales = "free_y") +
+  scale_color_manual(values = c("Pré-1979" = "red", "Post-1979" = "blue")) +
+  scale_fill_manual(values = c("Pré-1979" = "red", "Post-1979" = "blue")) +
+  scale_linetype_manual(name = "", values = c("NK model" = "dotted")) +
+  labs(title = "IRFs to ffr shock", x = NULL, y = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position = "bottom",
+  plot.title = element_text(face = "bold", hjust = 0.5,size = 12),
+    strip.text = element_text(face = "bold")
+  )
+
+```
+

@@ -27,10 +27,10 @@ df_us_sub <- df_us %>%
 # 3. Construire deux sous-échantillons pré-/post-Volcker 
 
 df_pre  <- df_us_sub %>%
-  filter(date <= as.yearqtr("1979 Q3"))
+  filter(date <= as.yearqtr("1979 Q4"))
 
 df_post <- df_us_sub %>%
-  filter(date >= as.yearqtr("1979 Q4"))
+  filter(date >= as.yearqtr("1980 Q1"))
 
 # Petit check
 cat("Pré-1979 : ", min(df_pre$date), "->", max(df_pre$date), " (n = ", nrow(df_pre), ")\n")
@@ -96,7 +96,6 @@ irf_pre <- irf(
   ortho = TRUE  # Cholesky
 )
 
-plot(irf_pre)
 
 irf_post <- irf(
   var_post,
@@ -108,23 +107,36 @@ irf_post <- irf(
   ortho = TRUE
 )
 
-plot_irf <- function(df, title = "") {
-  ggplot(df, aes(x = horizon, y = irf)) +
-    geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.15) +
-    geom_line(size = 1) +
-    facet_wrap(~variable, scales = "free_y", ncol = 1) +
-    labs(title = title, x = "Horizon", y = "Réponse") +
-    theme_minimal(base_size = 13) +
-    theme(
-      plot.title = element_text(face = "bold"),
-      strip.text = element_text(face = "bold")
-    )
-}
+# --- Fonction pour transformer IRF en data.frame long ---
 
-g_pre  <- plot_irf(df_irf_pre,  "Réponse à un choc de taux (Pré-1979)")
-g_post <- plot_irf(df_irf_post, "Réponse à un choc de taux (Post-1979)")
 
-final_plot <- g_pre / g_post  # patchwork : concaténation verticale
+df_irf_pre  <- irf_to_df(irf_pre, impulse_name = "ffr")
+df_irf_post <- irf_to_df(irf_post, impulse_name = "ffr")
+
+df_irf_pre$period  <- factor("Pré-1979", levels = c("Pré-1979", "Post-1979"))
+df_irf_post$period <- factor("Post-1979", levels = c("Pré-1979", "Post-1979"))
+
+df_irf_all <- bind_rows(df_irf_pre, df_irf_post)
+
+# Plot comparatif
+ggplot(df_irf_all, aes(x = horizon, y = irf, color = period, fill = period)) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.15, color = NA) +
+  geom_line(size = 1.2) +
+  facet_grid(variable ~ period, scales = "free_y") +
+  scale_color_manual(values = c("Pré-1979" = "red", "Post-1979" = "blue")) +
+  scale_fill_manual(values = c("Pré-1979" = "red", "Post-1979" = "blue")) +
+  labs(title = "Comparaison des IRFs du choc de taux", x = "Horizon (trimestres)", y = "Réponse") +
+  theme_minimal(base_size = 13) +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(face = "bold"),
+    strip.text = element_text(face = "bold")
+  )
+
+# --- Affichage empilé (optionnel) ---
+#g_pre / g_post
+
+
 
 ggsave(
   "sorties/figures/IRF_pre_post_Cholesky.png",
@@ -263,11 +275,35 @@ df <- df_pre %>%
   mutate(date=gsub(" ","",date)) %>%
   inner_join(green,by="date") 
 
+df_inf <- df %>% dplyr::select(date,pi,green)  %>%
+  mutate(
+    pi = as.numeric(pi),
+    green = as.numeric(green),
+    date = as.yearqtr(date, format = "%YQ%q")  # conversion en date trimestrielle
+  )
+
+ggplot(df_inf, aes(x = date)) +
+  theme_minimal() +
+  geom_line(aes(y = pi, color = "pi"), linewidth = 1) +
+  geom_line(aes(y = green, color = "exp"), linewidth = 1) +
+  scale_color_manual(values = c("pi" = "blue", "exp" = "darkgreen")) +
+  labs(
+    x = "Date",
+    y = "Valeur",
+    color = "Variable",
+    title = "Évolution de pi et green"
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+df_ts <- df_to_ts(df)
+
 select_exp  <- VARselect(df_ts,  lag.max = 8, type = "const")
 
 lags_exp  <- select_exp$selection["SC(n)"]
 
-VAR_exp <- VAR(df_ts,  p = p_pre,  type = "const")
+VAR_exp <- VAR(df_ts,  p = lags_exp,  type = "const")
 
 irf_exp <- irf(
   VAR_exp,
