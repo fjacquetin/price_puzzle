@@ -25,13 +25,12 @@ transform_df <- function(df, table, diff=TRUE) {
 }
 
 df_to_ts <- function(data, date_col = "date") {
-  
-  # Extraire la colonne date
-  period <- as.character(data[[date_col]])
+  # Convertir la colonne date en yearqtr
+  period <- as.yearqtr(data[[date_col]], format = "%Y Q%q")
   
   # Extraire année et trimestre pour le premier point
-  start_year <- as.numeric(substr(period[1], 1, 4))
-  start_quarter <- as.numeric(substr(period[1], 7, 7))
+  start_year <- as.numeric(format(period[1], "%Y"))
+  start_quarter <- as.numeric(format(period[1], "%q"))
   
   # Retirer la colonne date
   data2 <- data[, !(names(data) == date_col), drop = FALSE]

@@ -121,8 +121,9 @@ ffr_q <- ffr_m %>%
     ffr = mean(ffr, na.rm = TRUE)
   ) %>%
   ungroup() %>%
-  arrange(date) %>%
-filter(date <= "2006 Q4")
+  arrange(date) 
+# %>%
+# filter(date <= "2006 Q4")
 
 ggplot(ffr_q, aes(date, ffr)) +
   geom_line() +
@@ -158,6 +159,43 @@ ffr_eq <- var_fit$varresult$ffr
 resid_ffr <- residuals(ffr_eq)
 
 quarters <- seq(as.yearqtr("1979 Q1"), as.yearqtr("1981 Q4"), by = 0.25)
+
+p_values <- numeric(length(quarters))
+
+for(i in seq_along(quarters)) {
+  bp <- which(df_us$date == quarters[i])
+  if(length(bp) == 1) { 
+    chow <- sctest(resid_ffr ~ 1, type = "Chow", point = bp)
+    p_values[i] <- chow$p.value
+  } else {
+    p_values[i] <- NA
+  }
+}
+
+p_df <- data.frame(
+  Quarter = quarters,
+  P_value = p_values
+)
+
+ggplot(p_df, aes(x = Quarter, y = P_value)) +
+  geom_line(color = "red", size = 1.2) +
+  geom_hline(yintercept = 0.05, linetype = "dashed", color = "blue") +
+  theme_minimal(base_size = 14) +
+  labs(
+    title = "Chow test p-values",
+    x = NULL,
+    y = "p-value"
+  )
+```
+```{r}
+select_order <- VARselect(df)
+lags <- select_order$selection["SC(n)"]
+
+var_fit <- VAR(df, p = lags, type = "const")
+ffr_eq <- var_fit$varresult$ffr
+resid_ffr <- residuals(ffr_eq)
+
+quarters <- seq(as.yearqtr("2004 Q1"), as.yearqtr("2011 Q4"), by = 0.25)
 
 p_values <- numeric(length(quarters))
 
@@ -249,20 +287,30 @@ Y_pre_ts  <- df_us %>%
   df_to_ts()
 
 Y_post_ts <- df_us %>%
-  filter(date >= as.yearqtr("1980 Q1")) %>%
+  filter(date >= as.yearqtr("1980 Q1"),
+         date <= as.yearqtr("2006 Q2")) %>%
+  df_to_ts()
+
+Y_end_ts <- df_us %>%
+  filter(date >= as.yearqtr("2009 Q2"),
+         date <= as.yearqtr("2019 Q4")) %>%
   df_to_ts()
 
 lags_pre  <- VARselect(Y_pre_ts,  lag.max = 8, type = "const")
 lags_post <- VARselect(Y_post_ts, lag.max = 8, type = "const")
+lags_end <- VARselect(Y_end_ts, lag.max = 8, type = "const")
 
 p_pre  <- lags_pre$selection["SC(n)"]
 p_post <- lags_post$selection["SC(n)"]
+p_end <- lags_end$selection["SC(n)"]
 
 cat("Lags retenus (pré)  :", p_pre,  "\n")
 cat("Lags retenus (post) :", p_post, "\n")
+cat("Lags retenus (post) :", p_end, "\n")
 
 var_pre <- VAR(Y_pre_ts,  p = p_pre,  type = "const")
 var_post <- VAR(Y_post_ts, p = p_post, type = "const")
+var_end <- VAR(Y_end_ts, p = p_post, type = "const")
 
 summary(var_pre)
 summary(var_post)
@@ -290,25 +338,36 @@ irf_post <- irf(
   ortho = TRUE
 )
 
+irf_end <- irf(
+  var_end,
+  impulse = "ffr",
+  response = c("y_gap", "pi", "ffr"),
+  n.ahead = 20,
+  boot = TRUE,
+  runs = 500,
+  ortho = TRUE
+)
 df_irf_pre  <- irf_to_df(irf_pre, impulse_name = "ffr")
 df_irf_post <- irf_to_df(irf_post, impulse_name = "ffr")
+df_irf_end <- irf_to_df(irf_end, impulse_name = "ffr")
 
-df_irf_pre$period  <- factor("Pré-1979", levels = c("Pré-1979", "Post-1979"))
-df_irf_post$period <- factor("Post-1979", levels = c("Pré-1979", "Post-1979"))
+df_irf_pre$period  <- factor("Pré-1979", levels = c("Pré-1979", "Post-1979","Post-2007"))
+df_irf_post$period <- factor("Post-1979", levels = c("Pré-1979", "Post-1979","Post-2007"))
+df_irf_end$period <- factor("Post-2007", levels = c("Pré-1979", "Post-1979","Post-2007"))
 
 nk_df_long <- nk_df %>%
   mutate(lower = irf, upper = irf) %>%   # bandes de confiance égales à la valeur
-  expand_grid(period = c("Pré-1979", "Post-1979"))
+  expand_grid(period = c("Pré-1979", "Post-1979","Post-2007"))
 
-df_irf_all <- bind_rows(df_irf_pre, df_irf_post)
+df_irf_all <- bind_rows(df_irf_pre, df_irf_post,df_irf_end)
 
 
 # Ajouter un identifiant pour la légende combinée
 df_irf_all_plot <- df_irf_all %>%
-  mutate(period_factor = factor(period, levels = c("Pré-1979", "Post-1979")))
+  mutate(period_factor = factor(period, levels = c("Pré-1979", "Post-1979","Post-2007")))
 
 nk_df_long_plot <- nk_df_long %>%
-  mutate(period_factor = factor(period, levels = c("Pré-1979", "Post-1979")))
+  mutate(period_factor = factor(period, levels = c("Pré-1979", "Post-1979","Post-2007")))
 
 ggplot() +
   geom_ribbon(data = df_irf_all_plot,
@@ -321,8 +380,8 @@ ggplot() +
             aes(x = horizon, y = irf, linetype = "NK model"),
             color = "black", size = 1) +
   facet_grid(variable ~ period_factor, scales = "free_y") +
-  scale_color_manual(values = c("Pré-1979" = "red", "Post-1979" = "blue")) +
-  scale_fill_manual(values = c("Pré-1979" = "red", "Post-1979" = "blue")) +
+  scale_color_manual(values = c("Pré-1979" = "red", "Post-1979" = "blue","Post-2007" = "green")) +
+  scale_fill_manual(values = c("Pré-1979" = "red", "Post-1979" = "blue", "Post-2007" = "green")) +
   scale_linetype_manual(name = "", values = c("NK model" = "dotted")) +
   labs(title = "IRFs to ffr shock", x = NULL, y = NULL) +
   theme_minimal(base_size = 12) +
