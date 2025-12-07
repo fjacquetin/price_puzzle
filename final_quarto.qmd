@@ -396,7 +396,7 @@ ggplot() +
 VAR à 4 variables 
 ```{r}
 
-# 1Charger la série mensuelle WTI 
+# Charger la série mensuelle WTI 
 oil_m <- fredr::fredr(
   series_id = "WTISPLC",
   observation_start = as.Date("1960-01-01")
@@ -469,16 +469,24 @@ df_irf_oil <- bind_rows(df1, df2, df3) %>%
   mutate(period = factor(period, levels=c("Pré-1979","Post-1979","Post-2007")))
 
 # Affichage clean
-ggplot(df_irf_oil) +
-  geom_ribbon(aes(x=horizon, ymin=lower, ymax=upper, fill=period),
-              alpha=0.15, color=NA) +
-  geom_line(aes(x=horizon, y=irf, color=period), size=1) +
-  facet_grid(variable ~ period, scales="free_y") +
-  scale_color_manual(values=c("Pré-1979"="red", "Post-1979"="blue", "Post-2007"="green")) +
-  scale_fill_manual(values=c("Pré-1979"="red", "Post-1979"="blue", "Post-2007"="green")) +
-  labs(title="IRFs to a monetary policy shock (VAR with Oil)",
-       x="Horizon (quarters)", y=NULL) +
-  theme_minimal(base_size=12) +
-  theme(strip.text = element_text(face="bold"),
-        plot.title = element_text(face="bold", hjust=0.5))
+p_oil <- ggplot(df_irf_oil) +
+  geom_ribbon(aes(x = horizon, ymin = lower, ymax = upper, fill = period),
+              alpha = 0.15, color = NA) +
+  geom_line(aes(x = horizon, y = irf, color = period), size = 1) +
+  facet_grid(variable ~ period, scales = "free_y") +
+  scale_color_manual(values = c("Pré-1979" = "red",
+                                "Post-1979" = "blue",
+                                "Post-2007" = "green")) +
+  scale_fill_manual(values = c("Pré-1979" = "red",
+                               "Post-1979" = "blue",
+                               "Post-2007" = "green")) +
+  labs(title = "IRFs to a monetary policy shock (VAR with Oil)",
+       x = "Horizon (quarters)", y = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(
+    strip.text  = element_text(face = "bold"),
+    plot.title  = element_text(face = "bold", hjust = 0.5)
+  )
+
+print(p_oil)
 ```
