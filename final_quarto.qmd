@@ -415,7 +415,7 @@ oil_q <- oil_m %>%
     oil_log = log(oil),
     poil    = 400 * (oil_log - dplyr::lag(oil_log))   # inflation du pétrole
   ) %>%
-  select(date, poil) %>%
+  dplyr::select(date, poil) %>%
   drop_na()
 
 # Fusion avec données US (y_gap, pi, ffr)
@@ -438,9 +438,9 @@ make_ts4 <- function(df) {
     df_to_ts()
 }
 
-Y_pre_ts_oil  <- make_ts4(df_pre_oil)
-Y_post_ts_oil <- make_ts4(df_post_oil)
-Y_end_ts_oil  <- make_ts4(df_end_oil)
+Y_pre_ts_oil  <- df_to_ts(df_pre_oil)
+Y_post_ts_oil <- df_to_ts(df_post_oil)
+Y_end_ts_oil  <- df_to_ts(df_end_oil)
 
 # Choix des lags
 p_pre_oil  <- VARselect(Y_pre_ts_oil,  lag.max = 8)$selection["SC(n)"]
@@ -453,11 +453,11 @@ var_post_oil <- VAR(Y_post_ts_oil, p = p_post_oil, type = "const")
 var_end_oil  <- VAR(Y_end_ts_oil,  p = p_end_oil,  type = "const")
 
 # IRFs Cholesky
-irf_pre_oil  <- irf(var_pre_oil,  impulse="ffr", response=c("y_gap","pi","poil","ffr"),
+irf_pre_oil  <- irf(var_pre_oil,  impulse="ffr", response=c("poil","y_gap","pi","ffr"),
                     n.ahead=20, boot=TRUE, runs=500, ortho=TRUE)
-irf_post_oil <- irf(var_post_oil, impulse="ffr", response=c("y_gap","pi","poil","ffr"),
+irf_post_oil <- irf(var_post_oil, impulse="ffr", response=c("poil","y_gap","pi","ffr"),
                     n.ahead=20, boot=TRUE, runs=500, ortho=TRUE)
-irf_end_oil  <- irf(var_end_oil,  impulse="ffr", response=c("y_gap","pi","poil","ffr"),
+irf_end_oil  <- irf(var_end_oil,  impulse="ffr", response=c("poil","y_gap","pi","ffr"),
                     n.ahead=20, boot=TRUE, runs=500, ortho=TRUE)
 
 # Mise en forme tidy
