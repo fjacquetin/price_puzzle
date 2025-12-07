@@ -134,8 +134,8 @@ We do a Chow test to highlight the change of regime post 1979.
 
 
 ```{r}
-df_us <- pi_gdp %>%
-  inner_join(ogap, by = "date") %>%
+df_us <- ogap %>%
+  inner_join(pi_gdp, by = "date") %>%
   inner_join(ffr_q,  by = "date") %>%
   arrange(date)
 
@@ -393,12 +393,322 @@ ggplot() +
 
 ```
 
+We want to illustrate where the price puzzle comes from before 1979 and after 2007. We plot the Forecast Error Variance Decomposition (FEVD) after the ffr shock.
+
+
+```{r}
+# FEVD pour le VAR à 3 variables ----------------------------------------
+
+fevd_pre  <- fevd(var_pre,  n.ahead = 20)
+fevd_post <- fevd(var_post, n.ahead = 20)
+fevd_end  <- fevd(var_end,  n.ahead = 20)
+
+fevd_to_df <- function(fevd_obj, var_name, period_label) {
+  mat <- fevd_obj[[var_name]]           # matrice horizons x variables
+  df  <- as.data.frame(mat)
+  df$horizon <- 0:(nrow(df) - 1)
+  
+  df %>%
+    pivot_longer(
+      cols = -horizon,
+      names_to = "shock",
+      values_to = "share"
+    ) %>%
+    mutate(period = period_label)
+}
+
+fevd_pi_all <- bind_rows(
+  fevd_to_df(fevd_pre,  "pi", "Pré-1979"),
+  fevd_to_df(fevd_post, "pi", "Post-1979"),
+  fevd_to_df(fevd_end,  "pi", "Post-2007")
+) %>%
+  mutate(
+    period = factor(period, levels = c("Pré-1979", "Post-1979", "Post-2007"))
+  )
+
+ggplot(fevd_pi_all, aes(x = horizon, y = share, fill = shock)) +
+  geom_area(position = "stack") +
+  facet_wrap(~ period, nrow = 1) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  labs(
+    title = "Forecast error variance decomposition of inflation",
+    x = "Quarters",
+    y = "Share of forecast variance (%)"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    strip.text = element_text(face = "bold"),
+    plot.title = element_text(face = "bold", hjust = 0.5)
+  )
+
+```
+Finally, let's see the estimated coefficients of the VAR.
+
+```{r}
+eq_pre_pi  <- summary(var_pre)$varresult$pi
+
+coef_pre  <- coef(eq_pre_pi)
+
+print(coef_pre)
+
+```
+Before 1979, the ffr coefficient is positive and large. Before Volcker, the Fed typically raised interest rates in response to expected increases in inflation (poor monetary policy rules, focus on output and unemployment, weak anti-inflation credibility). The VAR confuses cause and consequence.
+
+No Phillips curve effect : output gap has no effect on inflation.
+
+```{r}
+eq_post_pi  <- summary(var_post)$varresult$pi
+
+coef_post  <- coef(eq_post_pi)
+
+print(coef_post)
+```
+Here no short effect, only a medium negative and significant + functioning Phillips curve.
+
+After 1979, the Fed aggressively fought inflation (Volcker disinflation),
+
+```{r}
+eq_end_pi  <- summary(var_end)$varresult$pi
+
+coef_end  <- coef(eq_end_pi)
+
+print(coef_end)
+```
+breakdown of the standard VAR structure. Coefficients on interest rates are huge and unstable. It is typical of the ZLB / QE environment.
+
+Apparent but spurious price puzzle.
+
+# Trying the fix the puzzle
+
+Following Castelnuovo et al., we propose a sign restrictions approach. We impose that after a monetary shock, ffr > O and outputggap < 0. Inflations remains unconstrained.
+
+```{r}
+Sigma <- cov(resid(var_pre))
+P <- t(chol(Sigma))
+n.sim <- 5000
+H <- 12
+N <- ncol(Y_pre_ts)
+
+A_raw <- vars::Bcoef(var_pre)
+
+if (is.list(A_raw)) {
+  A <- do.call(cbind, A_raw)
+} else {
+  A <- A_raw
+}
+
+p <- var_pre$p
+A_big <- matrix(0, nrow = N * p, ncol = N * p)
+
+A_no_const <- A[, 1:(N * p)]
+A_big[1:N, 1:(N * p)] <- A_no_const
+
+if (p > 1) {
+  A_big[(N+1):(N*p), 1:(N*(p-1))] <- diag(N * (p-1))
+}
+
+irfs_kept <- list()
+count <- 0
+set.seed(123)
+
+for (i in 1:n.sim) {
+  Z <- matrix(rnorm(N*N), N, N)
+  Q <- qr.Q(qr(Z))
+  B <- P %*% Q
+  irf_B <- manual_irf(B, H)
+  dy_response   <- irf_B[1, "y_gap"]
+  taux_response <- irf_B[1, "ffr"]
+  
+  if (taux_response >= 0 && dy_response <= 0) {
+    count <- count + 1
+    irfs_kept[[count]] <- irf_B
+  }
+}
+
+percent_kept <- count / n.sim * 100
+cat(percent_kept, "% of accepted simulations\n")
+
+### --- 4. Tidy-data des IRFs retenues ----
+
+irf_df <- purrr::map_dfr(
+  irfs_kept,
+  ~as.data.frame(.x) %>% mutate(h = 1:H),
+  .id = "sim"
+) %>%
+  tidyr::pivot_longer(
+    cols = -c(sim, h),
+    names_to = "variable",
+    values_to = "irf"
+  )
+
+### --- 5. Statistiques (mean & quantiles) ----
+
+irf_summary <- irf_df %>%
+  group_by(h, variable) %>%
+  summarise(
+    mean    = mean(irf),
+    lower68 = quantile(irf, 0.16),
+    upper68 = quantile(irf, 0.84),
+    lower90 = quantile(irf, 0.05),
+    upper90 = quantile(irf, 0.95),
+    .groups = "drop"
+  )
+
+### --- 6. IRFs Cholesky pré-1979 (benchmark VAR) ----
+
+# Extraction correcte : matrice H x 3
+chol_mat <- irf_pre_chol_raw$ffr    # matrice 12 x 3
+var_names <- colnames(chol_mat)     # "y_gap" "pi" "ffr"
+
+# Construction du tidy dataframe
+irf_pre_df <- bind_rows(
+  lapply(1:N, function(j){
+    tibble(
+      variable = var_names[j],
+      h = 1:H,
+      irf = chol_mat[1:H, j]
+    )
+  })
+)
+
+### --- 7. GRAPHIQUE FINAL ----
+
+ggplot() +
+  geom_ribbon(data=irf_summary,aes(x=h,ymin=lower90,ymax=upper90),alpha=.15,fill="lightblue") +
+  geom_ribbon(data=irf_summary,aes(x=h,ymin=lower68,ymax=upper68),alpha=.3,fill="blue") +
+  geom_line(data=irf_summary,aes(x=h,y=mean,color="Sign restrictions",linetype="Sign restrictions"),size=1.2) +
+  geom_line(data=irf_pre_df,aes(x=h,y=irf,color="Baseline",linetype="Baseline"),size=1) +
+  scale_x_continuous(labels = scales::number_format(accuracy = 1)) +
+  facet_wrap(~variable,scales="free_y") +
+  labs(x="Quarters",y="IRF",title="Sign restrictions",color=NULL,linetype=NULL) +
+  scale_color_manual(values=c("Sign restrictions"="black","Baseline"="red")) +
+  scale_linetype_manual(values=c("Sign restrictions"="solid","Baseline"="dashed")) +
+  theme_minimal(base_size=13) +
+  theme(legend.position="bottom")
+
+
+
+
+```
+
+In VARs, supply and demand shocks are mixed. Before 1979, many shocks are supply shocks : both inflation and ffr increase, and output gap decreases. Because response of inflation to output gap is positive, removing these positive responses reduce the level of inflation. But it doesn't remove the price puzzle.
+
+We propose now to augment the VAR. As suggested by Casteluovo, we get the inflation forecasts from the Greenbook.
+
+```{r}
+# ==============================
+# 1. Charger données Greenbook
+# ==============================
+green <- read.xlsx("data/greenbook.xlsx")
+
+df <- df_pre %>%
+  mutate(date = gsub(" ", "", date)) %>%
+  inner_join(green, by = "date")
+
+df_inf <- df %>%
+  dplyr::select(date, pi, green) %>%
+  mutate(
+    pi = as.numeric(pi),
+    green = as.numeric(green),
+    date = as.yearqtr(date, format = "%YQ%q")
+  )
+
+ggplot(df_inf, aes(x = date)) +
+  theme_minimal() +
+  geom_line(aes(y = pi, color = "pi"), linewidth = 1) +
+  geom_line(aes(y = green, color = "exp"), linewidth = 1) +
+  scale_color_manual(values = c("pi" = "blue", "exp" = "darkgreen")) +
+  labs(
+    x = "Date",
+    y = "Value",
+    color = "Variable",
+    title = "Inflation vs Expectations (Greenbook)"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+# ==============================
+# 2. VAR avec anticipations
+# ==============================
+df_ts <- df_to_ts(df)
+lags_exp <- VARselect(df_ts, lag.max = 8, type = "const")$selection["SC(n)"]
+VAR_exp <- VAR(df_ts, p = lags_exp, type = "const")
+
+
+# ==============================
+# 3. IRFs anticipations
+# ==============================
+irf_exp <- irf(
+  VAR_exp,
+  impulse = "ffr",
+  response = c("green", "y_gap", "pi", "ffr"),
+  n.ahead = 20,
+  boot = TRUE,
+  runs = 500,
+  ortho = TRUE
+)
+
+irf_exp_df <- irf_to_df(irf_exp, impulse_name = "ffr") %>%
+  mutate(model = "Avec anticipations")
+
+
+# ==============================
+# 4. IRF baseline (déjà calculé)
+# ==============================
+irf_pre_df <- irf_to_df(irf_pre, impulse_name = "ffr") %>%
+  mutate(model = "Baseline")
+
+# Ajouter un panel 'green' vide pour aligner le facet_wrap
+green_missing <- irf_pre_df %>%
+  filter(variable == "pi") %>%     # duplique la structure
+  mutate(
+    variable = "green",
+    irf = NA, lower = NA, upper = NA
+  )
+
+irf_pre_df <- bind_rows(irf_pre_df, green_missing)
+
+
+# ==============================
+# 5. Fusion tidy
+# ==============================
+irf_all <- bind_rows(irf_exp_df, irf_pre_df) %>%
+  mutate(model = factor(model, levels = c("Baseline", "Avec anticipations")))
+
+
+# ==============================
+# 6. Figure finale
+# ==============================
+ggplot(irf_all, aes(x = horizon, y = irf, color = model, linetype = model)) +
+  geom_ribbon(aes(ymin = lower, ymax = upper, fill = model),
+              alpha = 0.15, color = NA) +
+  geom_line(size = 1.1) +
+  facet_wrap(~variable, scales = "free_y") +
+  scale_color_manual(values = c("Baseline" = "red",
+                                "Avec anticipations" = "black")) +
+  scale_fill_manual(values = c("Baseline" = "red",
+                               "Avec anticipations" = "black")) +
+  scale_linetype_manual(values = c("Baseline" = "dashed",
+                                   "Avec anticipations" = "solid")) +
+  labs(
+    x = "Horizon",
+    y = "IRF",
+    title = "IRFs to Monetary Policy Shock: Baseline vs Inflation Expectations (Greenbook)",
+    color = NULL,
+    linetype = NULL
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "bottom")
+
+```
+
+
 VAR à 4 variables 
 ```{r}
 
 # Charger la série mensuelle WTI 
 oil_m <- fredr::fredr(
-  series_id = "PPIACO",
+  series_id = "PPIIDC", #PPIACO
   observation_start = as.Date("1960-01-01")
 ) %>%
   transmute(
@@ -421,22 +731,15 @@ oil_q <- oil_m %>%
 # Fusion avec données US (y_gap, pi, ffr)
 df_us_oil <- df_us %>%
   inner_join(oil_q, by = "date") %>%
-  arrange(date)
+  arrange(date) %>%
+  dplyr::select(date,poil,y_gap,pi,ffr)
 
 # Définir les 3 sous-périodes
 df_pre_oil <- df_us_oil %>% filter(date <= as.yearqtr("1979 Q4"))
 df_post_oil <- df_us_oil %>% filter(date >= as.yearqtr("1980 Q1"),
                                     date <= as.yearqtr("2006 Q2"))
-df_end_oil <- df_us_oil %>% filter(date >= as.yearqtr("2009 Q2"),
+df_end_oil <- df_us_oil %>% filter(date >= as.yearqtr("2009 Q4"),
                                    date <= as.yearqtr("2019 Q4"))
-
-# Transformer en ts
-make_ts4 <- function(df) {
-  df %>%
-    drop_na(y_gap, pi, ffr, poil) %>%
-    select(y_gap, pi, poil, ffr) %>%
-    df_to_ts()
-}
 
 Y_pre_ts_oil  <- df_to_ts(df_pre_oil)
 Y_post_ts_oil <- df_to_ts(df_post_oil)
@@ -445,7 +748,7 @@ Y_end_ts_oil  <- df_to_ts(df_end_oil)
 # Choix des lags
 p_pre_oil  <- VARselect(Y_pre_ts_oil,  lag.max = 8)$selection["SC(n)"]
 p_post_oil <- VARselect(Y_post_ts_oil, lag.max = 8)$selection["SC(n)"]
-p_end_oil  <- VARselect(Y_end_ts_oil,  lag.max = 8)$selection["SC(n)"]
+p_end_oil  <- VARselect(Y_end_ts_oil,  lag.max = 16)$selection["SC(n)"]
 
 # Estimation VAR
 var_pre_oil  <- VAR(Y_pre_ts_oil,  p = p_pre_oil,  type = "const")
@@ -453,11 +756,11 @@ var_post_oil <- VAR(Y_post_ts_oil, p = p_post_oil, type = "const")
 var_end_oil  <- VAR(Y_end_ts_oil,  p = p_end_oil,  type = "const")
 
 # IRFs Cholesky
-irf_pre_oil  <- irf(var_pre_oil,  impulse="ffr", response=c("poil","y_gap","pi","ffr"),
+irf_pre_oil  <- irf(var_pre_oil,  impulse="ffr", response=c("y_gap","pi","poil","ffr"),
                     n.ahead=20, boot=TRUE, runs=500, ortho=TRUE)
-irf_post_oil <- irf(var_post_oil, impulse="ffr", response=c("poil","y_gap","pi","ffr"),
+irf_post_oil <- irf(var_post_oil, impulse="ffr", response=c("y_gap","pi","poil","ffr"),
                     n.ahead=20, boot=TRUE, runs=500, ortho=TRUE)
-irf_end_oil  <- irf(var_end_oil,  impulse="ffr", response=c("poil","y_gap","pi","ffr"),
+irf_end_oil  <- irf(var_end_oil,  impulse="ffr", response=c("y_gap","pi","poil","ffr"),
                     n.ahead=20, boot=TRUE, runs=500, ortho=TRUE)
 
 # Mise en forme tidy

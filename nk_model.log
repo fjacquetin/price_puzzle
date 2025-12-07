@@ -18,7 +18,7 @@ Finding the optimal block decomposition of the dynamic model...
   the largest simultaneous block has 3 equation(s) 
                                  and 2 feedback variable(s). 
 Preprocessing completed. 
-Preprocessing time: 0h00m01s.
+Preprocessing time: 0h00m00s.
 [Warning: Some of the parameters have no value (kappa) when using steady. If these parameters are not initialized in a steadystate file or a steady_state_model-block, Dynare may
 not be able to solve the model. Note that simul, perfect_foresight_setup, and perfect_foresight_solver do not automatically call the steady state file.] 
 
@@ -103,5 +103,5 @@ pi        0.6203  0.4244  0.3207  0.2635  0.2297
 int       0.7095  0.5537  0.4659  0.4125  0.3769
 a         0.9500  0.9025  0.8574  0.8145  0.7738
 b         0.5000  0.2500  0.1250  0.0625  0.0312
-Total computing time : 0h00m12s
+Total computing time : 0h00m13s
 Note: warning(s) encountered in MATLAB/Octave code

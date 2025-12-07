@@ -109,3 +109,14 @@ plot_irf <- function(df, title = "") {
     )
   return(p)
 }
+
+manual_irf <- function(B, H) {
+  irf_mat <- matrix(0, H, N)
+  A_power <- diag(1, N*var_pre$p)
+  for (h in 1:H) {
+    A_power <- A_big %*% A_power
+    irf_mat[h, ] <- (A_power[1:N, 1:N] %*% B)[,1]
+  }
+  colnames(irf_mat) <- colnames(Y_pre_ts)
+  return(irf_mat)
+}
