@@ -398,7 +398,7 @@ VAR à 4 variables
 
 # Charger la série mensuelle WTI 
 oil_m <- fredr::fredr(
-  series_id = "WTISPLC",
+  series_id = "PPIACO",
   observation_start = as.Date("1960-01-01")
 ) %>%
   transmute(
