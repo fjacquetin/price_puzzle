@@ -1,71 +1,106 @@
-// NK model
-// Florian Jacquetin and Loman Sezestre
-//=============================================================
+// =====================================================================
+// New Keynesian Model (Clarida–Gali–Gertler / Woodford style)
+// With cost-push shock + measurement equations for realistic observables
+// IRFs + (optional) simulation
+// =====================================================================
 
-// Endogenous variables
-var x pi int a b;
+// Endogenous variables (model)
+var x pi int a b c
+    x_obs pi_obs int_obs;   // observed / interpretable series
 
-//=============================================================
+// Exogenous shocks (structural + measurement)
+varexo ea eb ec ex epi eint;
 
-// Exogenous variables
-varexo ea eb;
+// =====================================================================
+// Parameters
+parameters beta chi kappa phipi phix rhoR rhoa rhob rhoc
+           sig_a sig_b sig_c sig_xm sig_pim sig_im;
 
-//=============================================================
+// Discount factor
+beta  = 0.99;
 
-// First list the parameters and then assign them a value
-parameters bet alph phi sig phipi phix rhoa rhob kappa mu;
+// IS curve slope
+chi   = 1;
 
-// Structural parameters
-bet   = 0.99; 
-alph  = 0.75; 
-phi   = 1; 
-sig   = 1; 
+// Phillips curve slope
+kappa = 0.1;
+
+// Taylor rule
 phipi = 1.5;
-phix  = 0.;  
-// composite
-mu    = sig* (1 + phi) / (sig + phi);
+phix  = 0.5;
+rhoR  = 0.2;
 
-// Autoregressive parameters
-rhoa = 0.95; 
-rhob = 0.5;
+// AR(1) shock processes
+rhoa  = 0.7;
+rhob  = 0.7;
+rhoc  = 0.7;
 
+// Std deviations (STRUCTURAL shocks)  << réalistes (à ajuster)
+sig_a = 0.20;   // demand
+sig_b = 0.20;   // monetary policy
+sig_c = 0.14;   // cost-push
 
-// Declaration of the model - take the linear for (after log linearization): 
+// Std deviations (MEASUREMENT noise)  << décorrèle et rend “moins propre”
+sig_xm  = 0.50; // output gap noise, in percentage points
+sig_pim = 0.30; // inflation noise, in annualized pp
+sig_im  = 0.30; // rate noise, in annualized pp
 
-   
+// =====================================================================
+// LINEARIZED NK Model
 model(linear);
-// Dynamic IS equation
-x   = x(+1) - 1/sig * (int - pi(+1) -  mu * (a(+1)-a)  ) ;
 
-// New Keynesian Phillips curve
-pi  = bet * pi(+1) + ((phi+sig) * (1- alph) * (1-alph * bet) / alph ) * x;
+// (1) Dynamic IS equation
+x = x(+1) - chi * (int - pi(+1)) + a;
 
-// Monetary policy rule
-int = phix * x + phipi * pi + b;
+// (2) NK Phillips curve with cost–push shock
+pi = beta * pi(+1) + kappa * (x - c);
 
-// Technology shock
-a   = rhoa * a(-1) + ea; 
+// (3) Taylor rule with smoothing and cost–push term
+int = rhoR * int(-1)
+      + (1 - rhoR) * ( phipi*pi(+1) + phix*(x - c) )
+      + b;
 
-// Monetary Policy Shock
+// (4)-(6) Shock processes
+a = rhoa * a(-1) + ea;
 b = rhob * b(-1) + eb;
+c = rhoc * c(-1) + ec;
+
+// --- Measurement equations (NO CONSTANTS in linear model) ---
+// x_obs: output gap in %
+// pi_obs: inflation annualized in %
+// int_obs: nominal rate annualized in %
+x_obs   = 100*x   + ex;
+pi_obs  = 400*pi  + epi;
+int_obs = 400*int + eint;
 
 end;
 
-//=============================================================
-// Check the steady state
+// =====================================================================
+// Steady state (all deviations = 0)
+initval;
+  x = 0; pi = 0; int = 0;
+  a = 0; b = 0; c = 0;
+  x_obs = 0; pi_obs = 0; int_obs = 0;
+end;
 
 steady;
 check;
 
-//================================================
-// Define the shocks and their variability
-
+// =====================================================================
+// Shock definitions
 shocks;
-var ea;  stderr 1;
-var eb; stderr 1;
+  // Structural shocks
+  var ea; stderr sig_a;
+  var eb; stderr sig_b;
+  var ec; stderr sig_c;
+
+  // Measurement shocks
+  var ex;   stderr sig_xm;
+  var epi;  stderr sig_pim;
+  var eint; stderr sig_im;
 end;
 
-//================================================
-// Solve the model with the shocks introduced
-
-stoch_simul(order=1, irf=12);
+// =====================================================================
+// IRFs (12 periods) — include observables, and optionally core vars too
+stoch_simul(order=1, irf=12)
+            x pi int x_obs pi_obs int_obs;

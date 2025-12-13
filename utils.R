@@ -110,13 +110,37 @@ plot_irf <- function(df, title = "") {
   return(p)
 }
 
-manual_irf <- function(B, H) {
+manual_irf <- function(B, H, A_big, N, p, var_names) {
+  
   irf_mat <- matrix(0, H, N)
-  A_power <- diag(1, N*var_pre$p)
+  
+  # Matrice puissance A^0
+  A_power <- diag(1, N * p)
+  
   for (h in 1:H) {
     A_power <- A_big %*% A_power
-    irf_mat[h, ] <- (A_power[1:N, 1:N] %*% B)[,1]
+    # bloc supérieur gauche (N x N)
+    irf_mat[h, ] <- (A_power[1:N, 1:N] %*% B)[, 1]
   }
-  colnames(irf_mat) <- colnames(Y_pre_ts)
+  
+  colnames(irf_mat) <- var_names
   return(irf_mat)
 }
+
+manual_irf <- function(B, A_big, N, p, H, var_names){
+  irf_mat <- matrix(0, H, N)
+  A_power <- diag(1, N*p)
+  
+  # h = 0
+  irf_mat[1, ] <- B[, 1]
+  
+  # h = 1,...,H-1
+  for(h in 2:H){
+    A_power <- A_big %*% A_power
+    irf_mat[h, ] <- (A_power[1:N, 1:N] %*% B)[, 1]
+  }
+  
+  colnames(irf_mat) <- var_names
+  irf_mat
+}
+

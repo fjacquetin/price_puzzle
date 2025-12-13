@@ -138,12 +138,6 @@ ggplot(df_irf_all, aes(x = horizon, y = irf, color = period, fill = period)) +
 
 
 
-ggsave(
-  "sorties/figures/IRF_pre_post_Cholesky.png",
-  final_plot,
-  width = 10, height = 12, dpi = 300
-)
-
 # 8. Sauvegarder les IRFs en graphiques 
 
 dir.create("sorties/figures", showWarnings = FALSE)
@@ -198,6 +192,10 @@ if (is.list(A_raw)) {
 } else {
   A <- A_raw
 }
+
+p <- var_pre$p
+A_big <- matrix(0, nrow = N * p, ncol = N * p)
+
 
 A_no_const <- A[, 1:(N*var_pre$p)]
 A_big[1:N, 1:(N*var_pre$p)] <- A_no_const

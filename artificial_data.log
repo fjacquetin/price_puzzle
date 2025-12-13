@@ -1,0 +1,97 @@
+Starting Dynare (version 6.3).
+Calling Dynare with arguments: noclearall
+Starting preprocessing of the model file ... 
+Found 9 equation(s). 
+Evaluating expressions... 
+Computing static model derivatives (order 1). 
+Normalizing the static model... 
+Finding the optimal block decomposition of the static model... 
+5 block(s) found: 
+  4 recursive block(s) and 1 simultaneous block(s). 
+  the largest simultaneous block has 3 equation(s) 
+                                 and 3 feedback variable(s). 
+Computing dynamic model derivatives (order 2). 
+Normalizing the dynamic model... 
+Finding the optimal block decomposition of the dynamic model... 
+3 block(s) found: 
+  2 recursive block(s) and 1 simultaneous block(s). 
+  the largest simultaneous block has 3 equation(s) 
+                                 and 3 feedback variable(s). 
+Preprocessing completed. 
+Preprocessing time: 0h00m00s.
+
+EIGENVALUES:
+         Modulus             Real        Imaginary
+             0.3              0.3                0
+          0.4163           0.4163                0
+             0.7              0.7                0
+             0.7              0.7                0
+           1.101            1.085           0.1923
+           1.101            1.085          -0.1923
+
+There are 2 eigenvalue(s) larger than 1 in modulus for 2 forward-looking variable(s)
+The rank condition is verified.
+
+
+MODEL SUMMARY
+
+  Number of variables:         9
+  Number of stochastic shocks: 6
+  Number of state variables:   4
+  Number of jumpers:           2
+  Number of static variables:  3
+
+
+MATRIX OF COVARIANCE OF EXOGENOUS SHOCKS
+Variables          ea        eb        ec        ex       epi      eint
+ea           0.040000  0.000000  0.000000  0.000000  0.000000  0.000000
+eb           0.000000  0.040000  0.000000  0.000000  0.000000  0.000000
+ec           0.000000  0.000000  0.019600  0.000000  0.000000  0.000000
+ex           0.000000  0.000000  0.000000  0.250000  0.000000  0.000000
+epi          0.000000  0.000000  0.000000  0.000000  0.090000  0.000000
+eint         0.000000  0.000000  0.000000  0.000000  0.000000  0.090000
+
+POLICY AND TRANSITION FUNCTIONS
+                               x_obs          pi_obs         int_obs
+int(-1)                   -81.169862      -55.230797      166.521443
+a(-1)                     157.048302      158.397124      103.817087
+b(-1)                     -65.565098      -53.998607       85.847156
+c(-1)                      22.885509      -47.519137      -31.145126
+ea                        224.354717      226.281606      148.310125
+eb                       -218.550325     -179.995358      286.157187
+ec                         32.693585      -67.884482      -44.493037
+ex                          1.000000               0               0
+epi                                0        1.000000               0
+eint                               0               0        1.000000
+
+
+MOMENTS OF SIMULATED VARIABLES
+VARIABLE              MEAN       STD. DEV.        VARIANCE        SKEWNESS        KURTOSIS
+x_obs             8.606636       80.032024     6405.124887        0.238868       -0.465144
+pi_obs            4.113338       80.199582     6431.972962        0.089844       -0.044049
+int_obs          -0.352034      114.940346    13211.283039       -0.030251       -0.192923
+
+
+CORRELATION OF SIMULATED VARIABLES
+VARIABLE      x_obs   pi_obs  int_obs
+x_obs        1.0000   0.9615  -0.0054
+pi_obs       0.9615   1.0000   0.1546
+int_obs     -0.0054   0.1546   1.0000
+
+
+AUTOCORRELATION OF SIMULATED VARIABLES
+VARIABLE          1        2        3        4        5
+x_obs        0.5828   0.1970  -0.0228  -0.0271   0.0286
+pi_obs       0.6205   0.2741   0.0344  -0.0089   0.0185
+int_obs      0.7517   0.4994   0.2919   0.1277   0.0430
+
+
+
+VARIANCE DECOMPOSITION SIMULATING ONE SHOCK AT A TIME (in percent)
+                         ea                eb                ec                ex               epi              eint  Tot. lin. contr.
+x_obs                 63.21             55.74              0.98              0.00              0.00              0.00            119.93
+pi_obs                70.13             35.70              2.25              0.00              0.00              0.00            108.08
+int_obs               40.86             55.78              1.11              0.00              0.00              0.00             97.76
+Note: numbers do not add up to 100 due to non-zero correlation of simulated shocks in small samples
+
+Total computing time : 0h00m01s

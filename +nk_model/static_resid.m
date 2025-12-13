@@ -18,11 +18,15 @@ function residual = static_resid(T, y, x, params, T_flag)
 if T_flag
     T = nk_model.static_resid_tt(T, y, x, params);
 end
-residual = zeros(5, 1);
-    residual(1) = (y(1)) - (y(1)-1/params(4)*(y(3)-y(2)));
-    residual(2) = (y(2)) - (y(2)*params(1)+y(1)*(params(4)+params(3))*(1-params(2))*(1-params(1)*params(2))/params(2));
-    residual(3) = (y(3)) - (y(1)*params(6)+y(2)*params(5)+y(5));
+residual = zeros(9, 1);
+    residual(1) = (y(1)) - (y(1)-params(2)*(y(3)-y(2))+y(4));
+    residual(2) = (y(2)) - (y(2)*params(1)+params(3)*(y(1)-y(6)));
+    residual(3) = (y(3)) - (y(3)*params(6)+(1-params(6))*(y(2)*params(4)+(y(1)-y(6))*params(5))+y(5));
     residual(4) = (y(4)) - (y(4)*params(7)+x(1));
     residual(5) = (y(5)) - (y(5)*params(8)+x(2));
+    residual(6) = (y(6)) - (y(6)*params(9)+x(3));
+    residual(7) = (y(7)) - (y(1)*100+x(4));
+    residual(8) = (y(8)) - (y(2)*400+x(5));
+    residual(9) = (y(9)) - (y(3)*400+x(6));
 
 end

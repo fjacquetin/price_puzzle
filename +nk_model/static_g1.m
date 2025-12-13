@@ -18,16 +18,26 @@ function g1 = static_g1(T, y, x, params, T_flag)
 if T_flag
     T = nk_model.static_g1_tt(T, y, x, params);
 end
-g1 = zeros(5, 5);
-g1(1,2)=(-(1/params(4)));
-g1(1,3)=1/params(4);
-g1(2,1)=(-((params(4)+params(3))*(1-params(2))*(1-params(1)*params(2))/params(2)));
+g1 = zeros(9, 9);
+g1(1,2)=(-params(2));
+g1(1,3)=params(2);
+g1(1,4)=(-1);
+g1(2,1)=(-params(3));
 g1(2,2)=1-params(1);
-g1(3,1)=(-params(6));
-g1(3,2)=(-params(5));
-g1(3,3)=1;
+g1(2,6)=params(3);
+g1(3,1)=(-((1-params(6))*params(5)));
+g1(3,2)=(-((1-params(6))*params(4)));
+g1(3,3)=1-params(6);
 g1(3,5)=(-1);
+g1(3,6)=(-((1-params(6))*(-params(5))));
 g1(4,4)=1-params(7);
 g1(5,5)=1-params(8);
+g1(6,6)=1-params(9);
+g1(7,1)=(-100);
+g1(7,7)=1;
+g1(8,2)=(-400);
+g1(8,8)=1;
+g1(9,3)=(-400);
+g1(9,9)=1;
 
 end

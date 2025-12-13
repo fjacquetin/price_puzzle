@@ -1,107 +1,121 @@
 Starting Dynare (version 6.3).
 Calling Dynare with arguments: noclearall
 Starting preprocessing of the model file ... 
-Found 5 equation(s). 
+Found 9 equation(s). 
 Evaluating expressions... 
 Computing static model derivatives (order 1). 
 Normalizing the static model... 
 Finding the optimal block decomposition of the static model... 
-3 block(s) found: 
-  2 recursive block(s) and 1 simultaneous block(s). 
+5 block(s) found: 
+  4 recursive block(s) and 1 simultaneous block(s). 
   the largest simultaneous block has 3 equation(s) 
                                  and 3 feedback variable(s). 
 Computing dynamic model derivatives (order 2). 
 Normalizing the dynamic model... 
 Finding the optimal block decomposition of the dynamic model... 
-2 block(s) found: 
-  1 recursive block(s) and 1 simultaneous block(s). 
+3 block(s) found: 
+  2 recursive block(s) and 1 simultaneous block(s). 
   the largest simultaneous block has 3 equation(s) 
-                                 and 2 feedback variable(s). 
+                                 and 3 feedback variable(s). 
 Preprocessing completed. 
 Preprocessing time: 0h00m00s.
-[Warning: Some of the parameters have no value (kappa) when using steady. If these parameters are not initialized in a steadystate file or a steady_state_model-block, Dynare may
-not be able to solve the model. Note that simul, perfect_foresight_setup, and perfect_foresight_solver do not automatically call the steady state file.] 
 
 STEADY-STATE RESULTS:
 
-x   		 0
-pi  		 0
-int 		 0
-a   		 0
-b   		 0
+x       		 0
+pi      		 0
+int     		 0
+a       		 0
+b       		 0
+c       		 0
+x_obs   		 0
+pi_obs  		 0
+int_obs 		 0
 
 EIGENVALUES:
          Modulus             Real        Imaginary
-             0.5              0.5                0
-            0.95             0.95                0
-           1.127            1.092           0.2798
-           1.127            1.092          -0.2798
-       2.848e+16        2.848e+16                0
+           0.134            0.134                0
+             0.7              0.7                0
+             0.7              0.7                0
+             0.7              0.7                0
+           1.203            1.203                0
+           1.253            1.253                0
 
-There are 3 eigenvalue(s) larger than 1 in modulus for 3 forward-looking variable(s)
+There are 2 eigenvalue(s) larger than 1 in modulus for 2 forward-looking variable(s)
 The rank condition is verified.
 
-[Warning: Some of the parameters have no value (kappa) when using stoch_simul. If these parameters are not initialized in a steadystate file or a steady_state_model-block, Dynare
-may not be able to solve the model. Note that simul, perfect_foresight_setup, and perfect_foresight_solver do not automatically call the steady state file.] 
 
 MODEL SUMMARY
 
-  Number of variables:         5
-  Number of stochastic shocks: 2
-  Number of state variables:   2
-  Number of jumpers:           3
-  Number of static variables:  1
+  Number of variables:         9
+  Number of stochastic shocks: 6
+  Number of state variables:   4
+  Number of jumpers:           2
+  Number of static variables:  3
 
 
 MATRIX OF COVARIANCE OF EXOGENOUS SHOCKS
-Variables          ea        eb
-ea           1.000000  0.000000
-eb           0.000000  1.000000
+Variables          ea        eb        ec        ex       epi      eint
+ea           0.040000  0.000000  0.000000  0.000000  0.000000  0.000000
+eb           0.000000  0.040000  0.000000  0.000000  0.000000  0.000000
+ec           0.000000  0.000000  0.019600  0.000000  0.000000  0.000000
+ex           0.000000  0.000000  0.000000  0.250000  0.000000  0.000000
+epi          0.000000  0.000000  0.000000  0.000000  0.090000  0.000000
+eint         0.000000  0.000000  0.000000  0.000000  0.000000  0.090000
 
 POLICY AND TRANSITION FUNCTIONS
-                                   x              pi             int               a               b
-b(-1)                      -0.595285       -0.202358        0.196464               0        0.500000
-a(-1)                      -0.029019       -0.083726       -0.125588        0.950000               0
-ea                         -0.030547       -0.088132       -0.132198        1.000000               0
-eb                         -1.190570       -0.404715        0.392927               0        1.000000
+                                   x              pi             int           x_obs          pi_obs         int_obs
+int(-1)                    -0.157598       -0.018171        0.134038      -15.759786       -7.268417       53.615249
+a(-1)                       0.836043        0.241515        0.525824       83.604304       96.605969      210.329610
+b(-1)                      -0.949823       -0.312681        0.056193      -94.982325     -125.072573       22.477197
+c(-1)                       0.449187       -0.072454       -0.157747       44.918709      -28.981791      -63.098883
+ea                          1.194347        0.345021        0.751177      119.434720      138.008527      300.470871
+eb                         -1.356890       -0.446688        0.080276     -135.689036     -178.675104       32.110282
+ec                          0.641696       -0.103506       -0.225353       64.169584      -41.402558      -90.141261
+ex                                 0               0               0        1.000000               0               0
+epi                                0               0               0               0        1.000000               0
+eint                               0               0               0               0               0        1.000000
 
 
 THEORETICAL MOMENTS
 VARIABLE         MEAN  STD. DEV.   VARIANCE
-x              0.0000     1.3782     1.8995
-pi             0.0000     0.5459     0.2981
-int            0.0000     0.6206     0.3851
-a              0.0000     3.2026    10.2564
-b              0.0000     1.1547     1.3333
+x              0.0000     0.5097     0.2598
+pi             0.0000     0.1578     0.0249
+int            0.0000     0.2396     0.0574
+x_obs          0.0000    50.9765  2598.6019
+pi_obs         0.0000    63.1192  3984.0394
+int_obs        0.0000    95.8491  9187.0546
 
 
 
 VARIANCE DECOMPOSITION (in percent)
-           ea      eb
-x        0.50   99.50
-pi      26.73   73.27
-int     46.54   53.46
-a      100.00    0.00
-b        0.00  100.00
+               ea      eb      ec      ex     epi    eint
+x           36.98   56.38    6.63    0.00    0.00    0.00
+pi          35.28   63.17    1.56    0.00    0.00    0.00
+int         94.74    1.08    4.18    0.00    0.00    0.00
+x_obs       36.98   56.38    6.63    0.01    0.00    0.00
+pi_obs      35.28   63.17    1.56    0.00    0.00    0.00
+int_obs     94.74    1.08    4.18    0.00    0.00    0.00
 
 
 
 MATRIX OF CORRELATIONS
-Variables          x       pi      int        a        b
-x             1.0000   0.8905  -0.6809  -0.0710  -0.9975
-pi            0.8905   1.0000  -0.2731  -0.5170  -0.8560
-int          -0.6809  -0.2731   1.0000  -0.6822   0.7311
-a            -0.0710  -0.5170  -0.6822   1.0000   0.0000
-b            -0.9975  -0.8560   0.7311   0.0000   1.0000
+Variables          x       pi      int    x_obs   pi_obs  int_obs
+x             1.0000   0.9254   0.4519   1.0000   0.9254   0.4518
+pi            0.9254   1.0000   0.5163   0.9254   1.0000   0.5163
+int           0.4519   0.5163   1.0000   0.4518   0.5163   1.0000
+x_obs         1.0000   0.9254   0.4518   1.0000   0.9254   0.4518
+pi_obs        0.9254   1.0000   0.5163   0.9254   1.0000   0.5163
+int_obs       0.4518   0.5163   1.0000   0.4518   0.5163   1.0000
 
 
 
 COEFFICIENTS OF AUTOCORRELATION
-Order          1       2       3       4       5
-x         0.5023  0.2533  0.1287  0.0663  0.0350
-pi        0.6203  0.4244  0.3207  0.2635  0.2297
-int       0.7095  0.5537  0.4659  0.4125  0.3769
-a         0.9500  0.9025  0.8574  0.8145  0.7738
-b         0.5000  0.2500  0.1250  0.0625  0.0312
-Total computing time : 0h00m12s
-Note: warning(s) encountered in MATLAB/Octave code
+Order           1       2       3       4       5
+x          0.6811  0.4743  0.3316  0.2321  0.1625
+pi         0.6925  0.4837  0.3385  0.2369  0.1658
+int        0.7625  0.5421  0.3806  0.2666  0.1866
+x_obs      0.6811  0.4742  0.3316  0.2321  0.1625
+pi_obs     0.6925  0.4837  0.3385  0.2369  0.1658
+int_obs    0.7625  0.5421  0.3806  0.2666  0.1866
+Total computing time : 0h00m16s

@@ -22,11 +22,15 @@ function residual = dynamic_resid(T, y, x, params, steady_state, it_, T_flag)
 if T_flag
     T = nk_model.dynamic_resid_tt(T, y, x, params, steady_state, it_);
 end
-residual = zeros(5, 1);
-    residual(1) = (y(3)) - (y(8)-T(1)*(y(5)-y(9)-params(10)*(y(10)-y(6))));
-    residual(2) = (y(4)) - (y(9)*params(1)+y(3)*(params(4)+params(3))*(1-params(2))*(1-params(1)*params(2))/params(2));
-    residual(3) = (y(5)) - (y(3)*params(6)+y(4)*params(5)+y(7));
-    residual(4) = (y(6)) - (params(7)*y(1)+x(it_, 1));
-    residual(5) = (y(7)) - (params(8)*y(2)+x(it_, 2));
+residual = zeros(9, 1);
+    residual(1) = (y(5)) - (y(14)-params(2)*(y(7)-y(15))+y(8));
+    residual(2) = (y(6)) - (y(15)*params(1)+params(3)*(y(5)-y(10)));
+    residual(3) = (y(7)) - (params(6)*y(1)+(1-params(6))*(y(15)*params(4)+(y(5)-y(10))*params(5))+y(9));
+    residual(4) = (y(8)) - (params(7)*y(2)+x(it_, 1));
+    residual(5) = (y(9)) - (params(8)*y(3)+x(it_, 2));
+    residual(6) = (y(10)) - (params(9)*y(4)+x(it_, 3));
+    residual(7) = (y(11)) - (y(5)*100+x(it_, 4));
+    residual(8) = (y(12)) - (y(6)*400+x(it_, 5));
+    residual(9) = (y(13)) - (y(7)*400+x(it_, 6));
 
 end

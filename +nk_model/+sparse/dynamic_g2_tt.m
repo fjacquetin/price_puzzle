@@ -4,7 +4,7 @@ if T_order >= 2
 end
 [T_order, T] = nk_model.sparse.dynamic_g1_tt(y, x, params, steady_state, T_order, T);
 T_order = 2;
-if size(T, 1) < 1
-    T = [T; NaN(1 - size(T, 1), 1)];
+if size(T, 1) < 0
+    T = [T; NaN(0 - size(T, 1), 1)];
 end
 end
