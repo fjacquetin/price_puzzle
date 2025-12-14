@@ -261,9 +261,9 @@ Here we introduce the NK model and its properties.
 #| echo: false
 ## This cell needs to have Matlab installed. Change the link if necessary
 # 
-matlab_exec <- "C:/Program Files/MATLAB/R2024b/bin/matlab.exe"
+#matlab_exec <- "C:/Program Files/MATLAB/R2024b/bin/matlab.exe"
  
-system(sprintf('"%s" -batch "run(\'compute_nk_model.m\')"', matlab_exec))
+#system(sprintf('"%s" -batch "run(\'compute_nk_model.m\')"', matlab_exec))
 ```
 
 The parameters are taken from Clarida, R., Galí, J., & Gertler, M. (2000).
@@ -313,9 +313,9 @@ Based on this NK model, we simulate artificial but economically realistic macroe
 ```{r}
 #| echo: true
 
-matlab_exec <- "C:/Program Files/MATLAB/R2024b/bin/matlab.exe"
+#matlab_exec <- "C:/Program Files/MATLAB/R2024b/bin/matlab.exe"
 
-system(sprintf('"%s" -batch "dynare artificial_data.mod noclearall"',matlab_exec))
+#system(sprintf('"%s" -batch "dynare artificial_data.mod noclearall"',matlab_exec))
 
 sim_data <- R.matlab::readMat("artificial_data/Output/artificial_data_results.mat")
 
@@ -353,23 +353,6 @@ irf_sim <- irf(
   ortho = TRUE
 )
 
-irf_to_df <- function(irf_obj, impulse_name) {
-
-  irf_mat   <- irf_obj$irf[[impulse_name]]
-  lower_mat <- irf_obj$Lower[[impulse_name]]
-  upper_mat <- irf_obj$Upper[[impulse_name]]
-
-  horizons  <- 0:(nrow(irf_mat) - 1)
-  vars      <- colnames(irf_mat)
-
-  tibble(
-    horizon = rep(horizons, times = length(vars)),
-    variable = rep(vars, each = length(horizons)),
-    irf   = as.vector(irf_mat),
-    lower = as.vector(lower_mat),
-    upper = as.vector(upper_mat)
-  )
-}
 
 df_irf_sim <- irf_to_df(irf_sim, impulse_name = "ffr")
 
@@ -555,36 +538,24 @@ ggsave("sorties/fevd.png", width = 7, height = 4, dpi = 300)
 ```
 Finally, let's see the estimated coefficients of the VAR.
 
+
 ```{r}
-eq_pre_pi  <- summary(var_pre)$varresult$pi
-
-coef_pre  <- coef(eq_pre_pi)
-
-print(coef_pre)
+lapply(var_pre$varresult, function(eq) coef(eq))
+lapply(var_post$varresult, function(eq) coef(eq))
+lapply(var_end$varresult, function(eq) coef(eq))
+print(cov(resid(var_pre)))
 
 ```
+
+
 Before 1979, the ffr coefficient is positive and large. Before Volcker, the Fed typically raised interest rates in response to expected increases in inflation (poor monetary policy rules, focus on output and unemployment, weak anti-inflation credibility). The VAR confuses cause and consequence.
 
 No Phillips curve effect : output gap has no effect on inflation.
 
-```{r}
-eq_post_pi  <- summary(var_post)$varresult$pi
-
-coef_post  <- coef(eq_post_pi)
-
-print(coef_post)
-```
 Here no short effect, only a medium negative and significant + functioning Phillips curve.
 
 After 1979, the Fed aggressively fought inflation (Volcker disinflation),
 
-```{r}
-eq_end_pi  <- summary(var_end)$varresult$pi
-
-coef_end  <- coef(eq_end_pi)
-
-print(coef_end)
-```
 breakdown of the standard VAR structure. Coefficients on interest rates are huge and unstable. It is typical of the ZLB / QE environment.
 
 Apparent but spurious price puzzle.
@@ -839,6 +810,11 @@ scale_x_continuous(breaks = seq(0, 12, by = 3))
 
 ggsave("sorties/greenbook.png", width = 7, height = 4, dpi = 300)
 
+```
+
+```{r}
+lapply(VAR_exp$varresult, function(eq) coef(eq))
+print(cov(resid(VAR_exp)))
 ```
 
 ```{r}

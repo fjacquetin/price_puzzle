@@ -1,5 +1,3 @@
-library(tidyverse)
-
 transform_df <- function(df, table, diff=TRUE) {
   
   df_transformed <- df
@@ -25,17 +23,13 @@ transform_df <- function(df, table, diff=TRUE) {
 }
 
 df_to_ts <- function(data, date_col = "date") {
-  # Convertir la colonne date en yearqtr
   period <- as.yearqtr(data[[date_col]], format = "%Y Q%q")
   
-  # Extraire année et trimestre pour le premier point
   start_year <- as.numeric(format(period[1], "%Y"))
   start_quarter <- as.numeric(format(period[1], "%q"))
   
-  # Retirer la colonne date
   data2 <- data[, !(names(data) == date_col), drop = FALSE]
   
-  # Créer la ts trimestrielle
   ts(data2, start = c(start_year, start_quarter), frequency = 4)
 }
 
@@ -78,23 +72,29 @@ restrict_base <- function (df,variables=NULL,start=NULL,end=NULL){
   return(df)
 }
 
-
-irf_to_df <- function(irf_obj, impulse_name = "ffr") {
-  # Horizon
-  horizon <- 0:(nrow(irf_obj$irf[[impulse_name]]) - 1)
+irf_to_df <- function(irf_obj, impulse_name) {
   
-  # Data frame long
-  df <- data.frame(irf_obj$irf[[impulse_name]]) %>%
-    mutate(horizon = horizon) %>%
-    pivot_longer(cols = -horizon, names_to = "variable", values_to = "irf") %>%
-    mutate(
-      lower = as.vector(t(irf_obj$Lower[[impulse_name]])),
-      upper = as.vector(t(irf_obj$Upper[[impulse_name]]))
-    )
+  stopifnot(
+    impulse_name %in% names(irf_obj$irf),
+    impulse_name %in% names(irf_obj$Lower),
+    impulse_name %in% names(irf_obj$Upper)
+  )
   
-  return(df)
+  irf_mat   <- irf_obj$irf[[impulse_name]]
+  lower_mat <- irf_obj$Lower[[impulse_name]]
+  upper_mat <- irf_obj$Upper[[impulse_name]]
+  
+  horizons <- seq_len(nrow(irf_mat)) - 1
+  vars     <- colnames(irf_mat)
+  
+  tibble(
+    horizon  = rep(horizons, times = length(vars)),
+    variable = rep(vars, each = length(horizons)),
+    irf      = as.vector(irf_mat),
+    lower    = as.vector(lower_mat),
+    upper    = as.vector(upper_mat)
+  )
 }
-
 
 plot_irf <- function(df, title = "") {
   p <- ggplot(df, aes(x = horizon, y = irf)) +
@@ -110,22 +110,7 @@ plot_irf <- function(df, title = "") {
   return(p)
 }
 
-manual_irf <- function(B, H, A_big, N, p, var_names) {
-  
-  irf_mat <- matrix(0, H, N)
-  
-  # Matrice puissance A^0
-  A_power <- diag(1, N * p)
-  
-  for (h in 1:H) {
-    A_power <- A_big %*% A_power
-    # bloc supérieur gauche (N x N)
-    irf_mat[h, ] <- (A_power[1:N, 1:N] %*% B)[, 1]
-  }
-  
-  colnames(irf_mat) <- var_names
-  return(irf_mat)
-}
+
 
 manual_irf <- function(B, A_big, N, p, H, var_names){
   irf_mat <- matrix(0, H, N)
