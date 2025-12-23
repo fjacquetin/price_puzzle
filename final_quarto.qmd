@@ -11,7 +11,6 @@ execute:
   message: false
 ---
 
-
 # Solving the price puzzle
 
 This project aims at studying the price puzzle, a macroeconomic paradox observed by Sims (1980), when an increase of interest rate is sometimes followed by an increase of inflation in macroeconometric models.
@@ -127,8 +126,119 @@ ggplot(ffr_q, aes(date, ffr)) +
 
 ggsave("sorties/ffr.png", width = 7, height = 4, dpi = 300)
 ```
-We do a Chow test to highlight the change of regime post 1979.
 
+```{r}
+df <- read.xlsx("data/gPGDP_1967_1984.xlsx")
+df2 <- read.xlsx("data/gPGDP_1985_Last.xlsx")
+
+df_long <- df %>%
+  mutate(Date = as.character(Date)) %>%
+  separate(
+    Date,
+    into = c("year", "qtr"),
+    sep = "\\.",
+    convert = TRUE
+  ) %>%
+  pivot_longer(
+    cols = starts_with("gPGDP_"),
+    names_to = "vintage",
+    values_to = "forecast"
+  ) %>%
+  mutate(
+    vintage_date = ymd(substr(vintage, 7, 14)),
+    quarter_start = make_date(year, (qtr - 1) * 3 + 1, 1),
+    target_quarter_start = quarter_start %m+% months(3)
+  ) %>%
+  filter(!is.na(forecast))
+
+selected_forecasts <- df_long %>%
+  mutate(
+    is_before = vintage_date < target_quarter_start,
+    distance_days = abs(as.numeric(vintage_date - target_quarter_start))
+  ) %>%
+  group_by(year, qtr) %>%
+  arrange(
+    desc(is_before),      
+    distance_days       
+  ) %>%
+  slice(1) %>%
+  ungroup()
+
+result <- selected_forecasts %>%
+  transmute(
+    quarter = paste0(year, "Q", qtr),
+    target_quarter = paste0(
+      year(target_quarter_start),
+      "Q",
+      lubridate::quarter(target_quarter_start)
+    ),
+    forecast_next_q = forecast,
+    vintage_date
+  ) %>%
+  slice(-c(1:4)) %>%
+  slice(-((n() - 3):n()))
+
+df2_long <- df2 %>%
+  mutate(Date = as.character(Date)) %>%
+  separate(
+    Date,
+    into = c("year", "qtr"),
+    sep = "\\.",
+    convert = TRUE
+  ) %>%
+  pivot_longer(
+    cols = starts_with("gPGDP_"),
+    names_to = "vintage",
+    values_to = "forecast"
+  ) %>%
+  mutate(
+    vintage_date = ymd(substr(vintage, 7, 14)),
+    quarter_start = make_date(year, (qtr - 1) * 3 + 1, 1),
+    target_quarter_start = quarter_start %m+% months(3)
+  ) %>%
+  filter(!is.na(forecast))
+
+selected_forecasts2 <- df2_long %>%
+  mutate(
+    is_before = vintage_date < target_quarter_start,
+    distance_days = abs(as.numeric(vintage_date - target_quarter_start))
+  ) %>%
+  group_by(year, qtr) %>%
+  arrange(
+    desc(is_before),      
+    distance_days       
+  ) %>%
+  slice(1) %>%
+  ungroup()
+
+result2 <- selected_forecasts2 %>%
+  transmute(
+    quarter = paste0(year, "Q", qtr),
+    target_quarter = paste0(
+      year(target_quarter_start),
+      "Q",
+      lubridate::quarter(target_quarter_start)
+    ),
+    forecast_next_q = forecast,
+    vintage_date
+  ) %>%
+  slice(-c(1:4)) %>%
+  slice(-((n() - 7):n()))
+
+greenbook <- rbind(result,result2) %>%
+  mutate(date = as.yearqtr(quarter)) %>%
+  dplyr::select(date,forecast_next_q)
+
+ggplot(greenbook, aes(date, forecast_next_q)) +
+  geom_line() +
+  theme_minimal() +
+  labs(x = NULL, y = "Inflation forecasts for next quarter")
+
+ggsave("sorties/inflation_forecast.png", width = 7, height = 4, dpi = 300)
+
+```
+
+We do a Chow test to highlight the change of regime post 1979.
 
 ```{r}
 df_us <- ogap %>%
@@ -139,6 +249,7 @@ df_us <- ogap %>%
 
 print(head(df_us, 10))
 ```
+
 We run a Chow test to find the best break point, following Paul Volcker's appointment at the Fed.
 
 ```{r}
@@ -198,6 +309,7 @@ ggplot(p_df, aes(x = Quarter, y = P_value)) +
 ggsave("sorties/chow1.png", width = 7, height = 4, dpi = 300)
 
 ```
+
 ```{r}
 
 df_us_sub <- df_us %>% 
@@ -254,10 +366,9 @@ ggsave("sorties/chow2.png", width = 7, height = 4, dpi = 300)
 
 ```
 
-
 Here we introduce the NK model and its properties.
 
-```{r} 
+```{r}
 #| echo: false
 ## This cell needs to have Matlab installed. Change the link if necessary
 # 
@@ -292,7 +403,7 @@ nk_df <- data.frame(
 ggplot(nk_df, aes(x = horizon, y = irf)) +
   theme_minimal(base_size = 14) +
   geom_line(size = 1, color = "red") +
-  facet_wrap(~variable, ncol = 3, scales = "free_y") +
+  facet_wrap(~variable, nrow = 3, scales = "free_y") +
   labs(title = NULL,
        x = NULL,
        y = "NK IRFs") +
@@ -305,9 +416,10 @@ scale_x_continuous(breaks = seq(0, 12, by = 3)) +
     panel.grid.major = element_line(color = "gray90")
   )
 
-ggsave("sorties/nk.png", width = 7, height = 4, dpi = 300)
+ggsave("sorties/nk.png", width = 4, height = 8, dpi = 300)
 
 ```
+
 Based on this NK model, we simulate artificial but economically realistic macroeconomic time series and then estimate a VAR on these simulated data to study impulse responses and identification issues under controlled structural assumptions
 
 ```{r}
@@ -361,7 +473,7 @@ ggplot(df_irf_sim, aes(x = horizon, y = irf)) +
   geom_line(size = 1.2, color = "red") +
   geom_hline(yintercept = 0, linetype = "dashed") +
 scale_x_continuous(breaks = seq(0, 12, by = 3)) +
-  facet_wrap(~ variable, scales = "free_y") +
+  facet_wrap(~ variable,nrow=3, scales = "free_y") +
   labs(
     title = NULL,
     x = "Quarters",
@@ -371,11 +483,11 @@ scale_x_continuous(breaks = seq(0, 12, by = 3)) +
 
 
 ggsave("sorties/artificial_price_puzzle.png",
-       width = 7, height = 4, dpi = 300)
+       width = 4, height = 8, dpi = 300)
 
 ```
 
-Let's construct a SVAR model based on [og(t) pi(t) ffr(t)]
+Let's construct a SVAR model based on \[og(t) pi(t) ffr(t)\]
 
 ```{r}
 # echo: false
@@ -489,7 +601,6 @@ ggsave("sorties/baseline.png", width = 7, height = 4, dpi = 300)
 
 We want to illustrate where the price puzzle comes from before 1979 and after 2007. We plot the Forecast Error Variance Decomposition (FEVD) after the ffr shock.
 
-
 ```{r}
 fevd_pre  <- fevd(var_pre,  n.ahead = 12)
 fevd_post <- fevd(var_post, n.ahead = 12)
@@ -536,17 +647,17 @@ ggplot(fevd_pi_all, aes(x = horizon, y = share, fill = shock)) +
 ggsave("sorties/fevd.png", width = 7, height = 4, dpi = 300)
 
 ```
-Finally, let's see the estimated coefficients of the VAR.
 
+Finally, let's see the estimated coefficients of the VAR.
 
 ```{r}
 lapply(var_pre$varresult, function(eq) coef(eq))
 lapply(var_post$varresult, function(eq) coef(eq))
 lapply(var_end$varresult, function(eq) coef(eq))
 print(cov(resid(var_pre)))
-
+summary(var_pre$varresult$pi)
+summary(var_post$varresult$pi)
 ```
-
 
 Before 1979, the ffr coefficient is positive and large. Before Volcker, the Fed typically raised interest rates in response to expected increases in inflation (poor monetary policy rules, focus on output and unemployment, weak anti-inflation credibility). The VAR confuses cause and consequence.
 
@@ -562,7 +673,7 @@ Apparent but spurious price puzzle.
 
 # Trying the fix the puzzle
 
-Following Castelnuovo et al., we propose a sign restrictions approach. We impose that after a monetary shock, ffr > O and outputggap < 0. Inflations remains unconstrained.
+Following Castelnuovo et al., we propose a sign restrictions approach. We impose that after a monetary shock, ffr \> O and outputggap \< 0. Inflations remains unconstrained.
 
 ```{r}
 chol_pre3 <- irf_pre$irf$ffr
@@ -572,148 +683,122 @@ irf_pre3_df <- bind_rows(
   lapply(1:3, function(j)
     tibble(variable = vars_pre3[j], h = 0:12, irf = chol_pre3[1:13, j])
   )
-)
-irf_pre3_df$model <- "Baseline"
-
-Ymat <- var_pre$y
-N <- ncol(Ymat)
-var_names <- colnames(Ymat)
-p <- var_pre$p
-Sigma <- cov(resid(var_pre))
-P <- t(chol(Sigma))
-
-H <- 13
-n.sim <- 5000
-
-A_raw <- vars::Bcoef(var_pre)
-A <- if(is.list(A_raw)) do.call(cbind, A_raw) else A_raw
-
-A_big <- matrix(0, N*p, N*p)
-A_big[1:N, 1:(N*p)] <- A[,1:(N*p)]
-if(p > 1) A_big[(N+1):(N*p), 1:(N*(p-1))] <- diag(N*(p-1))
-
-irfs_kept <- list()
-count <- 0
-set.seed(123)
-
-for(i in 1:n.sim){
-  Z <- matrix(rnorm(N*N), N, N)
-  Q <- qr.Q(qr(Z))
-  B <- P %*% Q
-  colnames(B) <- var_names
-
-  irf_B <- manual_irf(B, A_big, N, p, H, var_names)
-
-  if(irf_B[1,"ffr"] > 0 && irf_B[1,"y_gap"] < 0){
-    count <- count + 1
-    irfs_kept[[count]] <- list(
-      B = B,
-      irf = irf_B
-    )
-  }
-}
-
-irf_df <- purrr::map_dfr(
-  seq_along(irfs_kept),
-  ~ as.data.frame(irfs_kept[[.x]]$irf) %>% mutate(h = 0:(H-1), sim = .x),
-  .id = NULL
 ) %>%
-  pivot_longer(cols = -c(sim,h),
-               names_to="variable",
-               values_to="irf")
+  mutate(model = "Baseline")
 
-irf_summary <- irf_df %>%
-  group_by(h,variable) %>%
-  summarise(
-    mean = mean(irf),
-    lower68 = quantile(irf,0.16),
-    upper68 = quantile(irf,0.84),
-    lower90 = quantile(irf,0.05),
-    upper90 = quantile(irf,0.95),
-    .groups="drop"
-  )
+sr_res <- compute_sr_irf(
+  var_fit      = var_pre,
+  restrictions = sr_monetary,
+  horizon      = 12,
+  n.sim        = 5000,
+  model_name   = "Sign restrictions"
+)
+
+irf_summary <- sr_res$irf_summary
+irfs_kept <- sr_res$irfs_kept
+B_kept    <- sr_res$B_kept
+B_all <- sr_res$B_all
 
 ggplot() +
-  geom_ribbon(data=irf_summary,
-              aes(x=h,ymin=lower90,ymax=upper90),
-              fill="lightblue",alpha=.15) +
-  geom_ribbon(data=irf_summary,
-              aes(x=h,ymin=lower68,ymax=upper68),
-              fill="blue",alpha=.3) +
-  geom_line(data=irf_summary,
-            aes(x=h,y=mean,color="Sign restrictions",linetype="Sign restrictions"),
-            size=1.2) +
-  geom_line(data=irf_pre3_df,
-            aes(x=h,y=irf,color="Baseline",linetype="Baseline"),
-            size=1) +
-  facet_wrap(~variable, scales="free_y") +
-  scale_color_manual(values=c("Baseline"="red","Sign restrictions"="black")) +
-  scale_linetype_manual(values=c("Baseline"="dashed","Sign restrictions"="solid")) +
-  labs(x=NULL, y="IRF") +
-  theme_minimal(base_size=13) +
-  theme(legend.position="bottom",
-        legend.title = element_blank()) +
-scale_x_continuous(breaks = seq(0, 12, by = 3)) +
+  geom_ribbon(
+    data = irf_summary,
+    aes(x = horizon, ymin = lower90, ymax = upper90),
+    fill = "lightblue", alpha = .15
+  ) +
+  geom_ribbon(
+    data = irf_summary,
+    aes(x = horizon, ymin = lower68, ymax = upper68),
+    fill = "blue", alpha = .30
+  ) +
+  geom_line(
+    data = irf_summary,
+    aes(x = horizon, y = irf,
+        color = "Sign restrictions",
+        linetype = "Sign restrictions"),
+    size = 1.2
+  ) +
+  geom_line(
+    data = irf_pre3_df,
+    aes(x = h, y = irf,
+        color = "Baseline",
+        linetype = "Baseline"),
+    size = 1
+  ) +
+  facet_wrap(~variable, scales = "free_y") +
+  scale_color_manual(values = c(
+    "Baseline" = "red",
+    "Sign restrictions" = "black"
+  )) +
+  scale_linetype_manual(values = c(
+    "Baseline" = "dashed",
+    "Sign restrictions" = "solid"
+  )) +
+  scale_x_continuous(breaks = seq(0,12,3)) +
+  labs(x = NULL, y = "IRF") +
+  theme_minimal(base_size = 13) +
+  theme(
+    legend.position = "bottom",
+    legend.title = element_blank()
+  ) +
   guides(linetype = "none")
 
 ggsave("sorties/sr.png", width = 7, height = 4, dpi = 300)
+
 
 ```
 
 ```{r}
 
-P <- t(chol(cov(resid(var_pre))))
-
-df_shocks <- tibble()
-
-for(i in seq_along(irfs_kept)){
-
-  B <- irfs_kept[[i]]$B
-  
-  shock_ffr  <- B["ffr",  "ffr"]
-  shock_ygap <- B["y_gap","ffr"]
-  shock_pi   <- B["pi",   "ffr"]
-
-  df_shocks <- bind_rows(df_shocks,
-                         tibble(
-                           ffr_shock  = shock_ffr,
-                           ygap_shock = shock_ygap,
-                           pi_shock   = shock_pi,
-                           admissible = TRUE
-                         ))
-}
-
+df_shocks <- purrr::map_dfr(
+  B_all,
+  ~ tibble(
+    ffr_shock  = .x["ffr",   "ffr"],
+    ygap_shock = .x["y_gap", "ffr"],
+    pi_shock   = .x["pi",    "ffr"]
+  )
+)
 
 xmin <- 0
-xmax <- max(df_shocks$ffr_shock, na.rm = TRUE)
+xmax <- max(df_shocks$ffr_shock,  na.rm = TRUE)
 ymin <- min(df_shocks$ygap_shock, na.rm = TRUE)
 ymax <- 0
 
-ggplot(df_shocks, aes(ffr_shock, ygap_shock)) +
-  geom_point(alpha = 0.4, color = "blue") +
-  annotate("rect",
-           xmin = xmin, xmax = xmax,
-           ymin = ymin, ymax = ymax,
-           alpha = 0.10, fill = "red") +
-  theme_minimal() +
-  labs(
-    x = "Shock to FFR at impact",
-    y = "Shock to OG at impact",
-    title = NULL
+ggplot(df_shocks, aes(x = ffr_shock, y = ygap_shock)) +
+    geom_point(
+    alpha = 0.4,
+    color = "blue1",
+    size = 1
   ) +
-  geom_vline(xintercept = 0, linetype="dashed") +
-  geom_hline(yintercept = 0, linetype="dashed") +
+    annotate(
+    "rect",
+    xmin = xmin, xmax = xmax,
+    ymin = ymin, ymax = ymax,
+    fill = "red",
+    alpha = 0.12
+  ) +
+    geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5) +
   annotate(
     "text",
-    x = xmax*0.85, y = ymin*0.85,
-    label = "Admissible region:\nffr > 0 & output gap < 0",
-    color = "red", size = 2
-  )
+    x = 0.4,
+    y = ymin * 0.85,
+    label = "Admissible region:\nFFR > 0 & Output gap < 0",
+    color = "red",
+    size = 4,
+    hjust = 0
+  ) +
+  
+  labs(
+    x = "Shock to federal funds rate (impact)",
+    y = "Shock to output gap (impact)"
+  ) +
+  
+  theme_minimal(base_size = 13)
+
 
 ggsave("sorties/rotation.png", width = 7, height = 4, dpi = 300)
 
 ```
-
 
 In VARs, supply and demand shocks are mixed. Before 1979, many shocks are supply shocks : both inflation and ffr increase, and output gap decreases. Because response of inflation to output gap is positive, removing these positive responses reduce the level of inflation. But it doesn't remove the price puzzle.
 
@@ -818,91 +903,112 @@ print(cov(resid(VAR_exp)))
 ```
 
 ```{r}
-sr3_df <- irf_summary %>%
-  dplyr::select(variable, horizon = h, irf = mean) %>%
-  mutate(model = "Sign restrictions")
+df_leadlag <- df_inf %>%
+  arrange(date) %>%
+  mutate(
+    Et_pi_t   = green,
+    Etm1_pi_t = dplyr::lag(green, 1),
+    Etm2_pi_t = dplyr::lag(green, 2)
+  ) %>%
+  drop_na()
 
-baseline_full <- irf_pre_df %>%
-  bind_rows(tibble(variable="green", horizon=0:12,
-                   irf=NA, lower=NA, upper=NA, model="Baseline"))
+c1 <- cor(df_leadlag$pi, df_leadlag$Et_pi_t)
+c2 <- cor(df_leadlag$pi, df_leadlag$Etm1_pi_t)
+c3 <- cor(df_leadlag$pi, df_leadlag$Etm2_pi_t)
+cat(sprintf("Correlation between inflation and current expectations: %.3f\n", c1))
+cat(sprintf("Correlation between inflation and 1-lagged expectations: %.3f\n", c2))
+cat(sprintf("Correlation between inflation and 2-lagged expectations: %.3f\n", c3))
+
+
+df_plot <- df_leadlag %>%
+  dplyr::select(date, pi, Etm1_pi_t) %>%
+  pivot_longer(-date, names_to = "series", values_to = "value")
+
+ggplot(df_plot, aes(x = date, y = value, color = series)) +
+  geom_line(linewidth = 1) +
+  scale_color_manual(
+    values = c(
+      pi = "black",
+      Etm1_pi_t = "red"
+    ),
+    labels = c(
+      pi = expression(pi[t]),
+      Etm1_pi_t = expression(E[t-1](pi[t]))
+    )
+  ) +
+  
+  labs(
+    x = NULL,
+    y = "Annualized inflation",
+    color = NULL,
+    title = NULL
+  ) +
+  
+  coord_cartesian(clip = "off") +
+  
+  theme_minimal(base_size = 13) +
+  theme(
+    legend.position = "bottom",
+    plot.margin = margin(20, 10, 10, 10)
+  )
+
+ggsave("sorties/greenbook_leadlag.png", width = 7, height = 4, dpi = 300)
+```
+
+```{r}
+baseline_df <- irf_pre_df %>%
+  dplyr::select(variable, horizon, irf, model)
 
 greenbook_df <- irf_exp_df %>%
   dplyr::select(variable, horizon, irf, model)
 
-Y4 <- VAR_exp$y
-N4 <- ncol(Y4)
-names4 <- colnames(Y4)
-p <- VAR_exp$p
-Sigma4 <- cov(resid(VAR_exp))
-P4 <- t(chol(Sigma4))
+sr1 <- irf_summary %>%
+  dplyr::select(variable,horizon,irf,model)
 
-A4_raw <- vars::Bcoef(VAR_exp)
-A4 <- if(is.list(A4_raw)) do.call(cbind, A4_raw) else A4_raw
+sr_gb_df <- compute_sr_irf(
+  var_fit      = VAR_exp,
+  restrictions = sr_monetary,
+  horizon      = 12,
+  n.sim        = 5000,
+  model_name   = "Sign restrictions + Greenbook"
+)
 
-A4_big <- matrix(0, N4*p, N4*p)
-A4_big[1:N4, 1:(N4*p)] <- A4[, 1:(N4*p)]
-if(p > 1) A4_big[(N4+1):(N4*p), 1:(N4*(p-1))] <- diag(N4*(p-1))
+sr2 <- sr_gb_df$irf_summary
 
-H <- 13
-n.sim <- 5000
-set.seed(123)
-irfs4 <- list()
-k4 <- 0
-
-for(i in 1:n.sim){
-  Z <- matrix(rnorm(N4*N4), N4, N4)
-  Q <- qr.Q(qr(Z))
-  B <- P4 %*% Q
-  colnames(B) <- names4
-  
-  x <- manual_irf(B, A4_big, N4, p, H, names4)
-
-  if(x[1,"ffr"] >= 0 && x[2,"y_gap"] <= 0){
-    k4 <- k4 + 1
-    irfs4[[k4]] <- x
-  }
-}
-
-sr4_df <- purrr::map_dfr(
-  irfs4,
-  ~ as.data.frame(.x) %>% mutate(h = 0:(H-1)),
-  .id = "sim"
-) %>%
-  pivot_longer(cols=-c(sim,h), names_to="variable", values_to="irf") %>%
-  group_by(h,variable) %>%
-  summarise(
-    mean = mean(irf),
-    lower68 = quantile(irf, .16),
-    upper68 = quantile(irf, .84),
-    lower90 = quantile(irf, .05),
-    upper90 = quantile(irf, .95),
-    .groups = "drop"
-  ) %>%
-  mutate(horizon = h, model = "Sign restrictions + Greenbook")
+B_all2 <- sr_gb_df$B_all
 
 irf_all <- bind_rows(
-  baseline_full %>% dplyr::select(variable, horizon, irf, model),
+  baseline_df,
   greenbook_df,
-  sr3_df,
-  sr4_df %>% dplyr::select(variable, horizon, irf = mean, model)
+  sr1
 )
 
 ggplot() +
-  geom_ribbon(data = sr4_df,
-              aes(x = horizon, ymin = lower90, ymax = upper90),
-              fill = "lightblue", alpha = .12) +
-  geom_ribbon(data = sr4_df,
-              aes(x = horizon, ymin = lower68, ymax = upper68),
-              fill = "blue", alpha = .18) +
-  geom_line(data = sr4_df,
-            aes(x = horizon, y = mean,
-                color = "Sign restrictions + Greenbook",
-                linetype = "Sign restrictions + Greenbook"),
-            size = 1.2) +
-  geom_line(data = irf_all,
-            aes(x = horizon, y = irf, color = model, linetype = model),
-            size = 1) +
-  facet_wrap(~variable, scales = "free_y") +
+  geom_ribbon(
+    data = sr2,
+    aes(x = horizon, ymin = lower90, ymax = upper90),
+    fill = "lightblue", alpha = .12
+  ) +
+  geom_ribbon(
+    data = sr2,
+    aes(x = horizon, ymin = lower68, ymax = upper68),
+    fill = "blue", alpha = .18
+  ) +
+  geom_line(
+    data = sr2,
+    aes(x = horizon, y = irf, color = model, linetype = model),
+    linewidth = 1.2
+  ) +
+  geom_line(
+    data = irf_all,
+    aes(x = horizon, y = irf, color = model, linetype = model),
+    linewidth = 1
+  ) +
+
+  facet_wrap(~variable, scales="free_y") +
+  geom_hline(yintercept = 0, linetype="dotted") +
+  scale_x_continuous(breaks = seq(0,12,3)) +
+
   scale_color_manual(values = c(
     "Baseline" = "red",
     "Greenbook" = "darkgreen",
@@ -915,17 +1021,279 @@ ggplot() +
     "Sign restrictions" = "dashed",
     "Sign restrictions + Greenbook" = "solid"
   )) +
-  labs(x = NULL, y = "IRFs", color = NULL, linetype = NULL) +
-  theme_minimal(base_size = 13) +
-  theme(
-    legend.position = "bottom",
-    legend.key.width = unit(2, "cm")
-  ) +
-  guides(color = guide_legend(nrow = 2),
-         linetype = guide_legend(nrow = 2)) +
-scale_x_continuous(breaks = seq(0, 12, by = 3))
 
-ggsave("sorties/final.png", width = 7, height = 4, dpi = 300)
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "bottom")
+
+ggsave("sorties/final.png", width=7, height=4, dpi=300)
+
 
 ```
 
+```{r}
+
+df_shocks2 <- purrr::map_dfr(
+  B_all2,
+  ~ tibble(
+    ffr_shock  = .x["ffr",   "ffr"],
+    ygap_shock = .x["y_gap", "ffr"],
+    pi_shock   = .x["pi",    "ffr"]
+  )
+)
+
+xmin2 <- 0
+xmax2 <- max(df_shocks2$ffr_shock,  na.rm = TRUE)
+ymin2<- min(df_shocks2$ygap_shock, na.rm = TRUE)
+ymax2 <- 0
+
+ggplot(df_shocks2, aes(x = ffr_shock, y = ygap_shock)) +
+    geom_point(
+    alpha = 0.4,
+    color = "blue1",
+    size = 1
+  ) +
+    annotate(
+    "rect",
+    xmin = xmin2, xmax = xmax2,
+    ymin = ymin2, ymax = ymax2,
+    fill = "red",
+    alpha = 0.12
+  ) +
+    geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.5) +
+    annotate(
+    "text",
+    x = 0.4,
+    y = ymin * 0.85,
+    label = "Pure monetary shocks:\nFFR > 0 & Output gap < 0",
+    color = "red",
+    size = 4,
+    hjust = 0
+  ) +
+  
+  labs(
+    x = "Shock to federal funds rate (impact)",
+    y = "Shock to output gap (impact)"
+  ) +
+  theme_minimal(base_size = 13)
+
+ggsave("sorties/rotation2.png", width = 7, height = 4, dpi = 300)
+```
+
+```{r}
+df_post <- df_us %>%
+  filter(date >= as.yearqtr("1979 Q4"),
+         date <= as.yearqtr("2007 Q1"))
+
+Y_post_ts <- df_post %>%
+  dplyr::select(date, y_gap, pi, ffr) %>%
+  df_to_ts()
+
+p_post <- VARselect(Y_post_ts, lag.max = 8, type = "const")$selection["SC(n)"]
+var_post <- VAR(Y_post_ts, p = p_post, type = "const")
+
+irf_post <- irf(
+  var_post,
+  impulse  = "ffr",
+  response = c("y_gap", "pi", "ffr"),
+  n.ahead  = 12,
+  boot     = TRUE,
+  runs     = 500
+)
+
+irf_post_df <- irf_to_df(
+  irf_post,
+  impulse_name = "ffr"
+) %>%
+  mutate(model = "Baseline")
+
+
+
+Y_post_gb_ts <- df_post %>%
+  inner_join(greenbook,by="date") %>%
+  dplyr::select(date, green=forecast_next_q, y_gap, pi, ffr) %>%
+  df_to_ts()
+
+p_gb <- VARselect(Y_post_gb_ts, lag.max = 8, type = "const")$selection["SC(n)"]
+var_post_gb <- VAR(Y_post_gb_ts, p = p_gb, type = "const")
+
+irf_gb <- irf(
+  var_post_gb,
+  impulse  = "ffr",
+  response = c("green","y_gap","pi","ffr"),
+  n.ahead  = 12,
+  boot     = TRUE,
+  runs     = 500
+)
+
+
+irf_exp_df <- irf_to_df(
+  irf_exp,
+  impulse_name = "ffr"
+) %>%
+  mutate(model = "Greenbook")
+
+
+
+sr_post_df <- compute_sr_irf(
+  var_fit    = var_post,
+  restrictions = sr_monetary,
+  horizon    = 12,
+  n.sim      = 5000,
+  model_name = "Sign restrictions"
+)
+
+sr_irf <- sr_post_df$irf_summary
+irf_all_post <- bind_rows(
+  irf_post_df,
+  irf_exp_df,
+  sr_irf
+)
+
+ggplot(irf_all_post,
+       aes(x = horizon, y = irf,
+           color = model, linetype = model)) +
+
+  geom_line(linewidth = 1) +
+  facet_wrap(~variable, scales = "free_y") +
+  geom_hline(yintercept = 0, linetype = "dotted") +
+  scale_x_continuous(breaks = seq(0, 12, 3)) +
+
+  scale_color_manual(values = c(
+    "Baseline" = "red",
+    "Greenbook" = "darkgreen",
+    "Sign restrictions" = "purple"
+  )) +
+
+  scale_linetype_manual(values = c(
+    "Baseline" = "solid",
+    "Greenbook" = "solid",
+    "Sign restrictions" = "solid"
+  )) +
+
+  labs(
+    x = NULL,
+    y = "Impulse responses",
+    color = NULL,
+    linetype = NULL
+  ) +
+
+  theme_minimal(base_size = 13) +
+  theme(
+    legend.position = "bottom",
+    strip.text = element_text(face = "bold")
+  )
+
+ggsave("sorties/post79_baseline_green_sr.png",
+       width = 7, height = 4, dpi = 300)
+
+
+```
+
+```{r}
+df_end <- df_us %>%
+  filter(date >= as.yearqtr("2009 Q4"),
+         date <= as.yearqtr("2019 Q4"))
+
+Y_end_ts <- df_end %>%
+  dplyr::select(date, y_gap, pi, ffr) %>%
+  df_to_ts()
+
+p_end <- VARselect(Y_end_ts, lag.max = 8, type = "const")$selection["SC(n)"]
+var_end<- VAR(Y_end_ts, p = p_end, type = "const")
+
+irf_end <- irf(
+  var_end,
+  impulse  = "ffr",
+  response = c("y_gap", "pi", "ffr"),
+  n.ahead  = 12,
+  boot     = TRUE,
+  runs     = 500
+)
+
+irf_end_df <- irf_to_df(
+  irf_end,
+  impulse_name = "ffr"
+) %>%
+  mutate(model = "Baseline")
+
+
+
+Y_end_gb_ts <- df_end %>%
+  inner_join(greenbook,by="date") %>%
+  dplyr::select(date, green=forecast_next_q, y_gap, pi, ffr) %>%
+  df_to_ts()
+
+p_gb <- VARselect(Y_end_gb_ts, lag.max = 8, type = "const")$selection["SC(n)"]
+var_end_gb <- VAR(Y_end_gb_ts, p = 1, type = "const")
+
+irf_end_gb <- irf(
+  var_end_gb,
+  impulse  = "ffr",
+  response = c("green","y_gap","pi","ffr"),
+  n.ahead  = 12,
+  boot     = TRUE,
+  runs     = 500
+)
+
+
+irf_exp_df <- irf_to_df(
+  irf_exp,
+  impulse_name = "ffr"
+) %>%
+  mutate(model = "Greenbook")
+
+
+
+sr_end_df <- compute_sr_irf(
+  var_fit    = var_end,
+  restrictions = sr_monetary,
+  horizon    = 12,
+  n.sim      = 5000,
+  model_name = "Sign restrictions"
+)
+
+sr_irf <- sr_end_df$irf_summary
+irf_all_end <- bind_rows(
+  irf_end_df,
+  irf_exp_df,
+  sr_irf
+)
+
+ggplot(irf_all_end,
+       aes(x = horizon, y = irf,
+           color = model, linetype = model)) +
+
+  geom_line(linewidth = 1) +
+  facet_wrap(~variable, scales = "free_y") +
+  geom_hline(yintercept = 0, linetype = "dotted") +
+  scale_x_continuous(breaks = seq(0, 12, 3)) +
+
+  scale_color_manual(values = c(
+    "Baseline" = "red",
+    "Greenbook" = "darkgreen",
+    "Sign restrictions" = "purple"
+  )) +
+
+  scale_linetype_manual(values = c(
+    "Baseline" = "solid",
+    "Greenbook" = "solid",
+    "Sign restrictions" = "solid"
+  )) +
+
+  labs(
+    x = NULL,
+    y = "Impulse responses",
+    color = NULL,
+    linetype = NULL
+  ) +
+
+  theme_minimal(base_size = 13) +
+  theme(
+    legend.position = "bottom",
+    strip.text = element_text(face = "bold")
+  )
+
+ggsave("sorties/end79_baseline_green_sr.png",
+       width = 7, height = 4, dpi = 300)
+```
