@@ -1,27 +1,42 @@
 ---
-title: "PP_project"
-author: "Loman Sezestre, Florian Jacquetin"
+title: "A Solution to the Price Puzzle on US Data"
+author:
+  - name: Florian Jacquetin
+  - name: Loman Sezestre
+date: today
 format:
   html:
-    code-fold: false
+    self-contained: true
+    theme: 
+      - cosmo
+      - custom.scss
+    toc: true
+    toc-depth: 2
+    number-sections: true
+    smooth-scroll: true
+    code-fold: true
+    code-tools: true
+    fig-align: center
+    fig-cap-location: bottom
+    df-print: paged
 execute:
   echo: true
-  output: true
-  warning: false
   message: false
+  warning: false
+editor: visual
 ---
-
-# Solving the price puzzle
 
 This project aims at studying the price puzzle, a macroeconomic paradox observed by Sims (1980), when an increase of interest rate is sometimes followed by an increase of inflation in macroeconometric models.
 
 It is designed as follows :
 
-1.  Presentation of the data
-2.  Reminder of the results of the NK framework
-3.  Modeling of the MP in US according to Castelnuovo and Surico (2010)
-4.  Solving the price puzzle according different strategies
-5.  Extensions
+1.  Data
+2.  Price Puzzle in the NK framework
+3.  Price Puzzle in US data
+4.  Solving the Price Puzzle: pre-Volcker regime
+5.  Extensions to post-Volcker regimes
+
+# Data
 
 ```{r}
 
@@ -96,6 +111,8 @@ ggsave("sorties/inflation.png", width = 7, height = 4, dpi = 300)
 
 ```
 
+Federal Funds Rate (FREDR)
+
 ```{r}
 ffr_m <- fredr::fredr(
   series_id = "FEDFUNDS",
@@ -126,6 +143,8 @@ ggplot(ffr_q, aes(date, ffr)) +
 
 ggsave("sorties/ffr.png", width = 7, height = 4, dpi = 300)
 ```
+
+Inflation Forecast (Greenbook)
 
 ```{r}
 df <- read.xlsx("data/gPGDP_1967_1984.xlsx")
@@ -238,7 +257,7 @@ ggsave("sorties/inflation_forecast.png", width = 7, height = 4, dpi = 300)
 
 ```
 
-We do a Chow test to highlight the change of regime post 1979.
+We start with a model with 3 variables.
 
 ```{r}
 df_us <- ogap %>%
@@ -310,6 +329,8 @@ ggsave("sorties/chow1.png", width = 7, height = 4, dpi = 300)
 
 ```
 
+We run another Chow test to find a break point during the 2008 crisis.
+
 ```{r}
 
 df_us_sub <- df_us %>% 
@@ -366,7 +387,9 @@ ggsave("sorties/chow2.png", width = 7, height = 4, dpi = 300)
 
 ```
 
-Here we introduce the NK model and its properties.
+# Price Puzzle in the NK framework
+
+Here we simulate IRFs from a theoretical NK model.
 
 ```{r}
 #| echo: false
@@ -376,8 +399,6 @@ Here we introduce the NK model and its properties.
  
 #system(sprintf('"%s" -batch "run(\'compute_nk_model.m\')"', matlab_exec))
 ```
-
-The parameters are taken from Clarida, R., Galí, J., & Gertler, M. (2000).
 
 Let's observe the IRFs.
 
@@ -420,7 +441,7 @@ ggsave("sorties/nk.png", width = 4, height = 8, dpi = 300)
 
 ```
 
-Based on this NK model, we simulate artificial but economically realistic macroeconomic time series and then estimate a VAR on these simulated data to study impulse responses and identification issues under controlled structural assumptions
+Based on this NK model, we simulate artificial but economically realistic macroeconomic time series and then estimate a VAR on these simulated data.
 
 ```{r}
 #| echo: true
@@ -487,7 +508,9 @@ ggsave("sorties/artificial_price_puzzle.png",
 
 ```
 
-Let's construct a SVAR model based on \[og(t) pi(t) ffr(t)\]
+# Price Puzzle on US data
+
+We construct a SVAR model based on real US data \[og(t) pi(t) ffr(t)\]
 
 ```{r}
 # echo: false
@@ -555,22 +578,22 @@ df_irf_pre  <- irf_to_df(irf_pre, impulse_name = "ffr")
 df_irf_post <- irf_to_df(irf_post, impulse_name = "ffr")
 df_irf_end <- irf_to_df(irf_end, impulse_name = "ffr")
 
-df_irf_pre$period  <- factor("Pré-1979", levels = c("Pré-1979", "Post-1979","Post-2007"))
-df_irf_post$period <- factor("Post-1979", levels = c("Pré-1979", "Post-1979","Post-2007"))
-df_irf_end$period <- factor("Post-2007", levels = c("Pré-1979", "Post-1979","Post-2007"))
+df_irf_pre$period  <- factor("Pré-1979", levels = c("Pré-1979", "Post-1979","Post-2009"))
+df_irf_post$period <- factor("Post-1979", levels = c("Pré-1979", "Post-1979","Post-2009"))
+df_irf_end$period <- factor("Post-2009", levels = c("Pré-1979", "Post-1979","Post-2009"))
 
 nk_df_long <- nk_df %>%
   mutate(lower = irf, upper = irf) %>%
-  expand_grid(period = c("Pré-1979", "Post-1979","Post-2007"))
+  expand_grid(period = c("Pré-1979", "Post-1979","Post-2009"))
 
 df_irf_all <- bind_rows(df_irf_pre, df_irf_post,df_irf_end)
 
 
 df_irf_all_plot <- df_irf_all %>%
-  mutate(period_factor = factor(period, levels = c("Pré-1979", "Post-1979","Post-2007")))
+  mutate(period_factor = factor(period, levels = c("Pré-1979", "Post-1979","Post-2009")))
 
 nk_df_long_plot <- nk_df_long %>%
-  mutate(period_factor = factor(period, levels = c("Pré-1979", "Post-1979","Post-2007")))
+  mutate(period_factor = factor(period, levels = c("Pré-1979", "Post-1979","Post-2009")))
 
 ggplot() +
   geom_ribbon(data = df_irf_all_plot,
@@ -583,8 +606,8 @@ ggplot() +
             aes(x = horizon, y = irf, linetype = "NK model"),
             color = "black", size = 1) +
   facet_grid(variable ~ period_factor, scales = "free_y") +
-  scale_color_manual(values = c("Pré-1979" = "red", "Post-1979" = "blue","Post-2007" = "green")) +
-  scale_fill_manual(values = c("Pré-1979" = "red", "Post-1979" = "blue", "Post-2007" = "green")) +
+  scale_color_manual(values = c("Pré-1979" = "red", "Post-1979" = "blue","Post-2009" = "green")) +
+  scale_fill_manual(values = c("Pré-1979" = "red", "Post-1979" = "blue", "Post-2009" = "green")) +
   scale_linetype_manual(name = "", values = c("NK model" = "dotted")) +
   labs(title = NULL, x = NULL, y = NULL) +
 scale_x_continuous(breaks = seq(0, 12, by = 3)) +
@@ -599,7 +622,7 @@ ggsave("sorties/baseline.png", width = 7, height = 4, dpi = 300)
 
 ```
 
-We want to illustrate where the price puzzle comes from before 1979 and after 2007. We plot the Forecast Error Variance Decomposition (FEVD) after the ffr shock.
+We want to illustrate where the price puzzle comes from before 1979 and after 2009. We plot the Forecast Error Variance Decomposition (FEVD) after the ffr shock.
 
 ```{r}
 fevd_pre  <- fevd(var_pre,  n.ahead = 12)
@@ -626,7 +649,7 @@ fevd_pi_all <- bind_rows(
   fevd_to_df(fevd_end,  "pi", "Post-2009")
 ) %>%
   mutate(
-    period = factor(period, levels = c("Pré-1979", "1979-2006", "Post-2007"))
+    period = factor(period, levels = c("Pré-1979", "1979-2006", "Post-2009"))
   )
 
 ggplot(fevd_pi_all, aes(x = horizon, y = share, fill = shock)) +
@@ -648,32 +671,20 @@ ggsave("sorties/fevd.png", width = 7, height = 4, dpi = 300)
 
 ```
 
-Finally, let's see the estimated coefficients of the VAR.
+Let's see the estimated coefficients of the VAR.
 
 ```{r}
 lapply(var_pre$varresult, function(eq) coef(eq))
 lapply(var_post$varresult, function(eq) coef(eq))
-lapply(var_end$varresult, function(eq) coef(eq))
-print(cov(resid(var_pre)))
-summary(var_pre$varresult$pi)
-summary(var_post$varresult$pi)
 ```
 
-Before 1979, the ffr coefficient is positive and large. Before Volcker, the Fed typically raised interest rates in response to expected increases in inflation (poor monetary policy rules, focus on output and unemployment, weak anti-inflation credibility). The VAR confuses cause and consequence.
+Before 1979, the ffr coefficient is positive and large. Before Volcker, the Fed typically raised interest rates in response to expected increases in inflation (poor monetary policy rules, focus on output and unemployment, weak anti-inflation credibility). The VAR confuses cause and consequence. No Phillips curve effect : output gap has no effect on inflation. Apparent but spurious price puzzle.
 
-No Phillips curve effect : output gap has no effect on inflation.
+After 1979, the Fed aggressively fights inflation (Volcker disinflation). Breakdown of the standard VAR structure. Coefficients on interest rates are huge and unstable. It is typical of the ZLB / QE environment.
 
-Here no short effect, only a medium negative and significant + functioning Phillips curve.
+# Solving the price puzzle: pre-Volcker regime
 
-After 1979, the Fed aggressively fought inflation (Volcker disinflation),
-
-breakdown of the standard VAR structure. Coefficients on interest rates are huge and unstable. It is typical of the ZLB / QE environment.
-
-Apparent but spurious price puzzle.
-
-# Trying the fix the puzzle
-
-Following Castelnuovo et al., we propose a sign restrictions approach. We impose that after a monetary shock, ffr \> O and outputggap \< 0. Inflations remains unconstrained.
+Following Castelnuovo et al., we propose a sign restrictions approach. We impose that after a monetary shock, ffr \> 0 and outputggap \< 0. Inflation remains unconstrained.
 
 ```{r}
 chol_pre3 <- irf_pre$irf$ffr
@@ -743,9 +754,9 @@ ggplot() +
   guides(linetype = "none")
 
 ggsave("sorties/sr.png", width = 7, height = 4, dpi = 300)
-
-
 ```
+
+We observe the IRFs at t=0 in the plane (ffr(0), ogap(0))
 
 ```{r}
 
@@ -797,7 +808,6 @@ ggplot(df_shocks, aes(x = ffr_shock, y = ygap_shock)) +
 
 
 ggsave("sorties/rotation.png", width = 7, height = 4, dpi = 300)
-
 ```
 
 In VARs, supply and demand shocks are mixed. Before 1979, many shocks are supply shocks : both inflation and ffr increase, and output gap decreases. Because response of inflation to output gap is positive, removing these positive responses reduce the level of inflation. But it doesn't remove the price puzzle.
@@ -897,10 +907,16 @@ ggsave("sorties/greenbook.png", width = 7, height = 4, dpi = 300)
 
 ```
 
+The puzzle still exists but is less apparent. Let's see the coefficients.
+
 ```{r}
 lapply(VAR_exp$varresult, function(eq) coef(eq))
 print(cov(resid(VAR_exp)))
 ```
+
+While the sensitivity of inflation to the federal funds rate becomes negative, a monetary policy shock still leads to an increase in inflation expectations in the short run. This pattern can be explained either by a **central bank information effect**, whereby policy tightening signals higher expected inflation to markets, or by **limited short-run credibility of the Federal Reserve** in anchoring inflation expectations.
+
+Let's compare inflation and inflation forecasts.
 
 ```{r}
 df_leadlag <- df_inf %>%
@@ -954,6 +970,8 @@ ggplot(df_plot, aes(x = date, y = value, color = series)) +
 
 ggsave("sorties/greenbook_leadlag.png", width = 7, height = 4, dpi = 300)
 ```
+
+Now let's include sign restrictions in the VAR with 4 variables.
 
 ```{r}
 baseline_df <- irf_pre_df %>%
@@ -1030,6 +1048,8 @@ ggsave("sorties/final.png", width=7, height=4, dpi=300)
 
 ```
 
+This combination of sign restrictions and forecast variables does not outperform either identification strategy taken separately. In the VAR, this reflects the fact that once central bank information is explicitly controlled for, the identified monetary policy shock no longer corresponds to a purely exogenous policy disturbance. In particular, during the pre-1979 period, monetary policy appears to have been largely endogenous, reacting primarily to agents’ inflation expectations rather than exerting an independent stabilizing role.
+
 ```{r}
 
 df_shocks2 <- purrr::map_dfr(
@@ -1079,6 +1099,10 @@ ggplot(df_shocks2, aes(x = ffr_shock, y = ygap_shock)) +
 
 ggsave("sorties/rotation2.png", width = 7, height = 4, dpi = 300)
 ```
+
+# Extensions to post-Volcker regimes
+
+We apply these strategies to post-Volcker regime. It's not relevant, and then counterproductive with the Greenbook. Post-Volcker, inflation forecasts are an integral part of the monetary policy transmission mechanism. Conditioning on them removes the credibility channel rather than isolating an information effect, leading to a re-emergence of the price puzzle.
 
 ```{r}
 df_post <- df_us %>%
@@ -1190,6 +1214,14 @@ ggsave("sorties/post79_baseline_green_sr.png",
 
 ```
 
+The estimated reduced-form VAR reveals that inflation expectations respond positively to lagged policy rates, while inflation itself is mainly driven by its own persistence and expectations. Monetary policy reacts strongly to past inflation and expectations, implying that policy innovations are largely endogenous. As a result, conditioning on inflation forecasts removes part of the credibility channel rather than isolating an exogenous monetary shock
+
+```{r}
+lapply(var_post_gb$varresult, function(eq) coef(eq))
+```
+
+The price puzzle reappears in the 2010s, a period characterized by policy rates close to the zero lower bound, where rate increases primarily convey information rather than exert immediate contractionary effects.
+
 ```{r}
 df_end <- df_us %>%
   filter(date >= as.yearqtr("2009 Q4"),
@@ -1296,4 +1328,10 @@ ggplot(irf_all_end,
 
 ggsave("sorties/end79_baseline_green_sr.png",
        width = 7, height = 4, dpi = 300)
+```
+
+Let's see the post-2008 coefficients. When the policy rate is close to zero, the VAR suggests that movements in the federal funds rate primarily reflect signaling normalization effects and increases expectations, leading to a price puzzle.
+
+```{r}
+lapply(var_end_gb$varresult, function(eq) coef(eq))
 ```
